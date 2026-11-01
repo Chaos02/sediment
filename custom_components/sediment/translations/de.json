@@ -1,0 +1,261 @@
+{
+  "config": {
+    "step": {
+      "history": {
+        "title": "Länge des Verlaufs",
+        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.",
+        "data": {
+          "history_choice": "Länge des Verlaufs",
+          "custom_days": "Eigene Länge (Tage, gilt bei Auswahl von Benutzerdefiniert)"
+        }
+      },
+      "resolution": {
+        "title": "Sediment-Auflösung",
+        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.",
+        "data": {
+          "resolution": "Auflösung",
+          "size_cap_gb": "Größenlimit (GB, optional)"
+        },
+        "data_description": {
+          "size_cap_gb": "Nur eine Warnschwelle. Liegt die Prognose darüber, bietet Sediment eine gröbere älteste Stufe an. Es dünnt neuere Daten nie aus, damit es passt."
+        }
+      },
+      "tiers": {
+        "title": "Eigene Stufen",
+        "description": "Drei Stufen, die neueste zuerst. Eine Stufe gilt bis zum angegebenen Alter, die letzte bis zum Ende der Verlaufslänge. Der Bucket ist das Zeitfenster, in dem Sediment die Extremwerte behält.",
+        "data": {
+          "t1_bucket_min": "Stufe 1 Bucket (Minuten)",
+          "t1_until_days": "Stufe 1 gilt bis zum Alter (Tage)",
+          "t2_bucket_min": "Stufe 2 Bucket (Minuten)",
+          "t2_until_days": "Stufe 2 gilt bis zum Alter (Tage)",
+          "t3_bucket_min": "Stufe 3 Bucket (Minuten)"
+        }
+      },
+      "profiles": {
+        "title": "Profile",
+        "description": "Jede Entität hat ein Profil. **keep**: nie ausgedünnt. **default**: mit der gewählten Auflösung ausgedünnt. **coarse**: breitere Buckets und kürzerer Horizont. **drop**: nur für das Rohfenster behalten, danach gelöscht.\n\nEine Regel pro Zeile, die erste passende gilt: `Selektor = Profil [flap|noflap]`. Ein Selektor ist eine Entitäts-ID mit `*` und `?`, oder `domain:sensor`, `device_class:temperature`, `integration:meine_integration`. `flap` oder `noflap` überschreibt das Zusammenfassen von Flattern für diese Entitäten. Zeilen mit `#` am Anfang sind Kommentare.\n\nBeispiel: `sensor.cpu_* = coarse`\n\n{rule_errors}",
+        "data": {
+          "profile_rules": "Regeln",
+          "flapping_collapse": "Flattern zusammenfassen"
+        },
+        "data_description": {
+          "flapping_collapse": "Wenn aktiv, verkürzt Sediment eine Folge von vier oder mehr Zustandswechseln im Abstand von höchstens einer Minute auf ihren ersten und letzten Wechsel. Das gilt in den Stufen ab 1 Stunde. Ist die Option aus, behält Sediment jeden Wechsel."
+        }
+      },
+      "purging": {
+        "title": "Bereinigung und Aufbewahrung",
+        "description": "Der Recorder behält derzeit **{keep_days} Tage**, seine automatische Bereinigung ist **{auto_purge}** und das automatische Verdichten der Datenbank ist **{auto_repack}** (wie beim Start von Home Assistant konfiguriert).\n\nSetze den Haken, damit Sediment die Bereinigung übernimmt. Sediment schaltet dann die nächtliche Bereinigung des Recorders ab. Es löscht Ereignisse, Kurzzeitstatistiken und Recorder-Läufe selbst, aber nicht früher, als der Recorder es getan hätte. Es dünnt Zustände aus, statt sie zu löschen, und entfernt sie erst nach der Verlaufslänge.\n\nSobald die Übernahme angewendet ist, **hängt der ausgedünnte Verlauf davon ab**. Käme die Bereinigung des Recorders zurück, würde sie bei ihrem nächsten nächtlichen Lauf alles löschen, was älter als {keep_days} Tage ist. Schaltest du den **Testlauf** später ein, pausiert nur das Ausdünnen. Die Übernahme bleibt bestehen. Kann die Integration nicht arbeiten (zum Beispiel nach einem Home-Assistant-Update, mit dem sie nicht getestet wurde), hält sie den Recorder vom Bereinigen ab und legt einen Reparaturhinweis an. Entfernst du den Haken, fragt Sediment nach einer Bestätigung. Entfernst du die Integration, gibt Sediment die Bereinigung zurück und teilt dir das mit. Deaktivierst du sie, bleibt die Bereinigung bis zum nächsten Neustart von Home Assistant ausgeschaltet.\n\nSicherheitsnetz: Trage `recorder: auto_purge: false` in die `configuration.yaml` ein. Sediment kann deinen Verlauf nicht schützen, wenn es gar nicht lädt. Dann läuft die eingebaute Bereinigung.\n\nBei eingeschaltetem **Testlauf** und noch nicht angewendeter Übernahme berechnet Sediment alles, schreibt einen Bericht und löscht nichts. Der Recorder bereinigt weiter wie bisher.",
+        "data": {
+          "takeover": "Sediment übernimmt die Bereinigung",
+          "raw_days": "Rohfenster (Tage)",
+          "dry_run": "Testlauf"
+        },
+        "data_description": {
+          "takeover": "Braucht eine Recorder-Version, mit der Sediment getestet wurde, und eine SQLite-Datenbank. Sonst ändert sich nichts, und ein Reparaturhinweis nennt den Grund.",
+          "raw_days": "Die neuesten Zeilen bleiben so viele Tage unberührt.",
+          "dry_run": "Nur berechnen und berichten. Haken entfernen, um wirklich auszudünnen."
+        }
+      },
+      "confirm": {
+        "title": "Prognostizierte Größe",
+        "description": "Mit diesen Einstellungen wäre die Datenbank nach {years} Jahren etwa **{projected_gb} GB** groß ({rows_m} Millionen Zustandszeilen). Größenlimit: {cap_gb} GB.\n\nDie Schätzung geht von den echten Zeilenraten deines Recorders und den eingebauten Referenzmessungen aus. Nach einem Testlauf nutzt sie die Zahlen dieser Installation."
+      },
+      "confirm_over_cap": {
+        "title": "Prognostizierte Größe",
+        "description": "Die Prognose von **{projected_gb} GB** liegt über deinem Limit von **{cap_gb} GB**. Setze den Haken, um die älteste Stufe gröber zu machen und neu zu rechnen. Sediment dünnt neuere Daten nie aus, damit es passt. Ohne Haken bleiben die Einstellungen, wie sie sind.",
+        "data": {
+          "coarsen_oldest": "Älteste Stufe gröber machen"
+        }
+      },
+      "confirm_over_cap_final": {
+        "title": "Prognostizierte Größe",
+        "description": "Die Prognose von **{projected_gb} GB** liegt über deinem Limit von **{cap_gb} GB**. Die älteste Stufe ist schon so grob wie möglich. Verkürze den Verlauf, erhöhe das Limit oder fahre trotzdem fort."
+      },
+      "release_confirm": {
+        "title": "Bereinigung zurückgeben?",
+        "description": "Sediment ist derzeit für die Bereinigung zuständig. Entfernst du den Haken, ist die Bereinigung von Home Assistant wieder aktiv. Bei ihrem nächsten nächtlichen Lauf (gegen 04:12) **löscht sie alles, was älter als {keep_days} Tage ist**. Das schließt den gesamten ausgedünnten Verlauf ein, der älter ist. Bestätige nur, wenn du das willst.",
+        "data": {
+          "release": "Ja, Bereinigung zurückgeben und das Löschen älteren Verlaufs akzeptieren"
+        }
+      }
+    },
+    "error": {
+      "invalid_rules": "Einige Regeln sind ungültig: {rule_errors}",
+      "invalid_tiers": "Stufe 1 muss vor Stufe 2 enden, und die Buckets dürfen mit dem Alter nicht kleiner werden."
+    }
+  },
+  "options": {
+    "step": {
+      "history": {
+        "title": "Länge des Verlaufs",
+        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.",
+        "data": {
+          "history_choice": "Länge des Verlaufs",
+          "custom_days": "Eigene Länge (Tage, gilt bei Auswahl von Benutzerdefiniert)"
+        }
+      },
+      "resolution": {
+        "title": "Sediment-Auflösung",
+        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.",
+        "data": {
+          "resolution": "Auflösung",
+          "size_cap_gb": "Größenlimit (GB, optional)"
+        },
+        "data_description": {
+          "size_cap_gb": "Nur eine Warnschwelle. Liegt die Prognose darüber, bietet Sediment eine gröbere älteste Stufe an. Es dünnt neuere Daten nie aus, damit es passt."
+        }
+      },
+      "tiers": {
+        "title": "Eigene Stufen",
+        "description": "Drei Stufen, die neueste zuerst. Eine Stufe gilt bis zum angegebenen Alter, die letzte bis zum Ende der Verlaufslänge. Der Bucket ist das Zeitfenster, in dem Sediment die Extremwerte behält.",
+        "data": {
+          "t1_bucket_min": "Stufe 1 Bucket (Minuten)",
+          "t1_until_days": "Stufe 1 gilt bis zum Alter (Tage)",
+          "t2_bucket_min": "Stufe 2 Bucket (Minuten)",
+          "t2_until_days": "Stufe 2 gilt bis zum Alter (Tage)",
+          "t3_bucket_min": "Stufe 3 Bucket (Minuten)"
+        }
+      },
+      "profiles": {
+        "title": "Profile",
+        "description": "Jede Entität hat ein Profil. **keep**: nie ausgedünnt. **default**: mit der gewählten Auflösung ausgedünnt. **coarse**: breitere Buckets und kürzerer Horizont. **drop**: nur für das Rohfenster behalten, danach gelöscht.\n\nEine Regel pro Zeile, die erste passende gilt: `Selektor = Profil [flap|noflap]`. Ein Selektor ist eine Entitäts-ID mit `*` und `?`, oder `domain:sensor`, `device_class:temperature`, `integration:meine_integration`. `flap` oder `noflap` überschreibt das Zusammenfassen von Flattern für diese Entitäten. Zeilen mit `#` am Anfang sind Kommentare.\n\nBeispiel: `sensor.cpu_* = coarse`\n\n{rule_errors}",
+        "data": {
+          "profile_rules": "Regeln",
+          "flapping_collapse": "Flattern zusammenfassen"
+        },
+        "data_description": {
+          "flapping_collapse": "Wenn aktiv, verkürzt Sediment eine Folge von vier oder mehr Zustandswechseln im Abstand von höchstens einer Minute auf ihren ersten und letzten Wechsel. Das gilt in den Stufen ab 1 Stunde. Ist die Option aus, behält Sediment jeden Wechsel."
+        }
+      },
+      "purging": {
+        "title": "Bereinigung und Aufbewahrung",
+        "description": "Der Recorder behält derzeit **{keep_days} Tage**, seine automatische Bereinigung ist **{auto_purge}** und das automatische Verdichten der Datenbank ist **{auto_repack}** (wie beim Start von Home Assistant konfiguriert).\n\nSetze den Haken, damit Sediment die Bereinigung übernimmt. Sediment schaltet dann die nächtliche Bereinigung des Recorders ab. Es löscht Ereignisse, Kurzzeitstatistiken und Recorder-Läufe selbst, aber nicht früher, als der Recorder es getan hätte. Es dünnt Zustände aus, statt sie zu löschen, und entfernt sie erst nach der Verlaufslänge.\n\nSobald die Übernahme angewendet ist, **hängt der ausgedünnte Verlauf davon ab**. Käme die Bereinigung des Recorders zurück, würde sie bei ihrem nächsten nächtlichen Lauf alles löschen, was älter als {keep_days} Tage ist. Schaltest du den **Testlauf** später ein, pausiert nur das Ausdünnen. Die Übernahme bleibt bestehen. Kann die Integration nicht arbeiten (zum Beispiel nach einem Home-Assistant-Update, mit dem sie nicht getestet wurde), hält sie den Recorder vom Bereinigen ab und legt einen Reparaturhinweis an. Entfernst du den Haken, fragt Sediment nach einer Bestätigung. Entfernst du die Integration, gibt Sediment die Bereinigung zurück und teilt dir das mit. Deaktivierst du sie, bleibt die Bereinigung bis zum nächsten Neustart von Home Assistant ausgeschaltet.\n\nSicherheitsnetz: Trage `recorder: auto_purge: false` in die `configuration.yaml` ein. Sediment kann deinen Verlauf nicht schützen, wenn es gar nicht lädt. Dann läuft die eingebaute Bereinigung.\n\nBei eingeschaltetem **Testlauf** und noch nicht angewendeter Übernahme berechnet Sediment alles, schreibt einen Bericht und löscht nichts. Der Recorder bereinigt weiter wie bisher.",
+        "data": {
+          "takeover": "Sediment übernimmt die Bereinigung",
+          "raw_days": "Rohfenster (Tage)",
+          "dry_run": "Testlauf"
+        },
+        "data_description": {
+          "takeover": "Braucht eine Recorder-Version, mit der Sediment getestet wurde, und eine SQLite-Datenbank. Sonst ändert sich nichts, und ein Reparaturhinweis nennt den Grund.",
+          "raw_days": "Die neuesten Zeilen bleiben so viele Tage unberührt.",
+          "dry_run": "Nur berechnen und berichten. Haken entfernen, um wirklich auszudünnen."
+        }
+      },
+      "confirm": {
+        "title": "Prognostizierte Größe",
+        "description": "Mit diesen Einstellungen wäre die Datenbank nach {years} Jahren etwa **{projected_gb} GB** groß ({rows_m} Millionen Zustandszeilen). Größenlimit: {cap_gb} GB.\n\nDie Schätzung geht von den echten Zeilenraten deines Recorders und den eingebauten Referenzmessungen aus. Nach einem Testlauf nutzt sie die Zahlen dieser Installation."
+      },
+      "confirm_over_cap": {
+        "title": "Prognostizierte Größe",
+        "description": "Die Prognose von **{projected_gb} GB** liegt über deinem Limit von **{cap_gb} GB**. Setze den Haken, um die älteste Stufe gröber zu machen und neu zu rechnen. Sediment dünnt neuere Daten nie aus, damit es passt. Ohne Haken bleiben die Einstellungen, wie sie sind.",
+        "data": {
+          "coarsen_oldest": "Älteste Stufe gröber machen"
+        }
+      },
+      "confirm_over_cap_final": {
+        "title": "Prognostizierte Größe",
+        "description": "Die Prognose von **{projected_gb} GB** liegt über deinem Limit von **{cap_gb} GB**. Die älteste Stufe ist schon so grob wie möglich. Verkürze den Verlauf, erhöhe das Limit oder fahre trotzdem fort."
+      },
+      "release_confirm": {
+        "title": "Bereinigung zurückgeben?",
+        "description": "Sediment ist derzeit für die Bereinigung zuständig. Entfernst du den Haken, ist die Bereinigung von Home Assistant wieder aktiv. Bei ihrem nächsten nächtlichen Lauf (gegen 04:12) **löscht sie alles, was älter als {keep_days} Tage ist**. Das schließt den gesamten ausgedünnten Verlauf ein, der älter ist. Bestätige nur, wenn du das willst.",
+        "data": {
+          "release": "Ja, Bereinigung zurückgeben und das Löschen älteren Verlaufs akzeptieren"
+        }
+      }
+    },
+    "error": {
+      "invalid_rules": "Einige Regeln sind ungültig: {rule_errors}",
+      "invalid_tiers": "Stufe 1 muss vor Stufe 2 enden, und die Buckets dürfen mit dem Alter nicht kleiner werden."
+    }
+  },
+  "selector": {
+    "history_choice": {
+      "options": {
+        "1": "1 Jahr",
+        "2": "2 Jahre",
+        "5": "5 Jahre",
+        "10": "10 Jahre",
+        "custom": "Benutzerdefiniert (Tage)"
+      }
+    },
+    "resolution": {
+      "options": {
+        "fine": "Fein",
+        "standard": "Standard",
+        "coarse": "Grob",
+        "custom": "Benutzerdefiniert"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "db_size": {
+        "name": "DB-Größe"
+      },
+      "projected_size": {
+        "name": "Prognostizierte Größe"
+      }
+    }
+  },
+  "issues": {
+    "takeover_blocked": {
+      "title": "Sediment kann die Bereinigung nicht übernehmen",
+      "description": "Sediment soll die Bereinigung des Recorders übernehmen. Diese Home-Assistant-Version oder Datenbank weicht aber von den getesteten ab. Deshalb hat Sediment den Recorder unverändert gelassen: {reasons}\n\nSolange dieser Hinweis offen ist, ändert Sediment nichts. Aktualisiere Sediment oder entferne den Haken für die Übernahme in den Optionen."
+    },
+    "takeover_protecting": {
+      "title": "Sediment hält den Recorder vom Bereinigen ab",
+      "description": "Sediment hat die Bereinigung übernommen, kann mit dieser Home-Assistant-Version oder Datenbank aber nicht arbeiten: {reasons}\n\nZum Schutz des ausgedünnten Verlaufs bleibt die automatische Bereinigung des Recorders aus, und Sediment dünnt nichts aus und löscht nichts. Aktualisiere Sediment. Entfernst du Sediment, geht die Bereinigung an den Recorder zurück. Der Recorder löscht dann alles, was älter als seine konfigurierten Aufbewahrungstage ist."
+    },
+    "unsupported_database": {
+      "title": "Sediment unterstützt nur SQLite",
+      "description": "{reason}. Sediment übernimmt die Bereinigung nicht. Es dünnt in dieser Datenbank nichts aus und löscht nichts. Ein Testlauf, der nur liest, funktioniert weiterhin. Hatte Sediment die Bereinigung zuvor übernommen, bleibt die automatische Bereinigung des Recorders aus."
+    },
+    "safety_net": {
+      "title": "Sicherheitsnetz: eingebaute Bereinigung in der configuration.yaml abschalten",
+      "description": "Setze `recorder: auto_purge: false` in der `configuration.yaml`, damit ein fehlgeschlagenes Laden von Sediment deinen Verlauf nicht an die eingebaute Bereinigung übergibt. Sediment übernimmt die Bereinigung erst, nachdem es gestartet ist. Lädt es nicht (fehlgeschlagenes Update, fehlende Datei), läuft die nächtliche Bereinigung des Recorders und löscht alles, was älter als seine Aufbewahrungstage ist."
+    },
+    "job_failing": {
+      "title": "Der nächtliche Lauf von Sediment schlägt immer wieder fehl",
+      "description": "Der nächtliche Lauf ist {count} Mal hintereinander fehlgeschlagen. Letzte Fehler: {errors}\n\nEs geht nichts verloren. Sediment wiederholt den fehlgeschlagenen Schritt, und die Schritte für Verlaufslänge und Aufräumen laufen weiter. Sieh ins Protokoll und in den Bericht `sediment/last_report.json`."
+    },
+    "retention_inferred": {
+      "title": "Sediment hat alten Verlauf gefunden und hält die Bereinigung zurück",
+      "description": "Sediment hat Zustände gefunden, die {days} Tage alt sind, älter als die {keep_days} Tage, die der Recorder behält. Sediment kann nicht erkennen, ob es sie früher ausgedünnt hat. Deshalb hält es die Bereinigung von Home Assistant zu ihrem Schutz zurück. Das ist sicher: Es wird nichts gelöscht.\n\nHat Sediment diese Datenbank nie ausgedünnt (zum Beispiel weil du die Aufbewahrungstage des Recorders gesenkt hast), entferne in den Optionen den Haken für die Übernahme. Sediment fragt nach einer Bestätigung, denn die eingebaute Bereinigung löscht dann bei ihrem nächsten nächtlichen Lauf alles, was älter als {keep_days} Tage ist."
+    }
+  },
+  "services": {
+    "run_now": {
+      "name": "Jetzt ausführen",
+      "description": "Führt den Ausdünnungslauf einmal aus, außerhalb des nächtlichen Zeitplans.",
+      "fields": {
+        "dry_run": {
+          "name": "Testlauf",
+          "description": "Berechnen und berichten, ohne zu löschen. Leer lassen, um die Einstellung der Integration zu verwenden."
+        }
+      }
+    },
+    "clear_quarantine": {
+      "name": "Quarantäne leeren",
+      "description": "Lässt Entitäts-Tage, die Sediment nach Fehlern übersprungen hat, beim nächsten Lauf erneut ausdünnen."
+    },
+    "export_profile_map": {
+      "name": "Profilzuordnung exportieren",
+      "description": "Schreibt <config>/sediment/profile_map.json: Entität, aufgelöstes Profil, Profil-Signatur und deren Hash. tools/merge_history.py --profile-map nutzt sie, damit der Import die Profile kennt, die nur Home Assistant sieht (Integration, Registry)."
+    },
+    "import_history": {
+      "name": "Verlauf importieren",
+      "description": "Importiert älteren Verlauf aus einer mit tools/merge_history.py erzeugten Datei. Sediment fügt nur Zeilen ein, die älter als die älteste vorhandene Zeile sind. Ein Testlauf berichtet nur und schreibt nichts.",
+      "fields": {
+        "path": {
+          "name": "Datei",
+          "description": "Pfad der Importdatenbank. Lege sie in <config>/sediment/ ab."
+        },
+        "dry_run": {
+          "name": "Testlauf",
+          "description": "Berichtet, was importiert würde, und schreibt nichts. Standardmäßig an."
+        }
+      }
+    }
+  }
+}

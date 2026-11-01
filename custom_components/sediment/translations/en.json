@@ -1,0 +1,261 @@
+{
+  "config": {
+    "step": {
+      "history": {
+        "title": "History length",
+        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.",
+        "data": {
+          "history_choice": "History length",
+          "custom_days": "Custom length (days, used when you pick Custom)"
+        }
+      },
+      "resolution": {
+        "title": "Sediment resolution",
+        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.",
+        "data": {
+          "resolution": "Resolution",
+          "size_cap_gb": "Size cap (GB, optional)"
+        },
+        "data_description": {
+          "size_cap_gb": "A guard only. If the projected size is above the cap, Sediment offers a coarser oldest tier. It never thins newer data to fit."
+        }
+      },
+      "tiers": {
+        "title": "Custom tiers",
+        "description": "Three tiers, newest first. A tier lasts until the age you give. The last tier lasts to the end of the history length. The bucket is the time window in which Sediment keeps the extremes.",
+        "data": {
+          "t1_bucket_min": "Tier 1 bucket (minutes)",
+          "t1_until_days": "Tier 1 lasts until age (days)",
+          "t2_bucket_min": "Tier 2 bucket (minutes)",
+          "t2_until_days": "Tier 2 lasts until age (days)",
+          "t3_bucket_min": "Tier 3 bucket (minutes)"
+        }
+      },
+      "profiles": {
+        "title": "Profiles",
+        "description": "Every entity has one profile. **keep**: never thinned. **default**: thinned with the resolution you chose. **coarse**: wider buckets and a shorter horizon. **drop**: kept for the raw window only, then deleted.\n\nOne rule per line, first match wins: `selector = profile [flap|noflap]`. A selector is an entity id with `*` and `?`, or `domain:sensor`, `device_class:temperature`, `integration:my_integration`. `flap` or `noflap` overrides the flapping collapse for those entities. Lines starting with `#` are comments.\n\nExample: `sensor.cpu_* = coarse`\n\n{rule_errors}",
+        "data": {
+          "profile_rules": "Rules",
+          "flapping_collapse": "Collapse flapping"
+        },
+        "data_description": {
+          "flapping_collapse": "When on, Sediment reduces a burst of four or more state changes, each within a minute of the last, to its first and last change. This applies in the tiers from 1 hour on. When off, Sediment keeps every change."
+        }
+      },
+      "purging": {
+        "title": "Purging and retention",
+        "description": "The recorder currently keeps **{keep_days} days**, its automatic purge is **{auto_purge}** and its automatic repack is **{auto_repack}** (as configured when Home Assistant started).\n\nTick the box to let Sediment take over purging. Sediment then turns off the recorder's own nightly purge. It deletes events, short-term statistics and recorder runs itself, but not earlier than the recorder would have. It thins states instead of deleting them, and removes them only after the history length.\n\nOnce the takeover is applied, **thinned history depends on it**. If the recorder's purge came back, it would delete everything older than {keep_days} days at its next nightly run. Switching **dry run** on later only pauses thinning. The takeover stays applied. If the integration cannot work (for example after a Home Assistant update it was not tested with), it keeps the recorder from purging and raises a repair issue. Unticking the box asks for confirmation. Removing the integration hands purging back and tells you. Disabling it keeps purging off until Home Assistant restarts.\n\nSafety net: add `recorder: auto_purge: false` to `configuration.yaml`. Sediment cannot protect your history if it fails to load at all. The built-in purge then runs.\n\nWhile **dry run** is on and the takeover is not applied yet, Sediment computes everything, writes a report and deletes nothing. The recorder keeps purging as before.",
+        "data": {
+          "takeover": "Sediment takes over purging",
+          "raw_days": "Raw window (days)",
+          "dry_run": "Dry run"
+        },
+        "data_description": {
+          "takeover": "Needs a recorder version Sediment was tested with and a SQLite database. Otherwise nothing changes, and a repair issue explains why.",
+          "raw_days": "The newest rows stay untouched for this many days.",
+          "dry_run": "Compute and report only. Untick to start thinning for real."
+        }
+      },
+      "confirm": {
+        "title": "Projected size",
+        "description": "With these settings the database would be about **{projected_gb} GB** after {years} years ({rows_m} million state rows). Size cap: {cap_gb} GB.\n\nThe estimate starts from your recorder's real row rates and the built-in reference measurements. After a dry run it uses this installation's own numbers."
+      },
+      "confirm_over_cap": {
+        "title": "Projected size",
+        "description": "The projection of **{projected_gb} GB** is above your cap of **{cap_gb} GB**. Tick the box to make the oldest tier coarser and recalculate. Sediment never thins newer data to fit. Submit without ticking to keep the settings as they are.",
+        "data": {
+          "coarsen_oldest": "Make the oldest tier coarser"
+        }
+      },
+      "confirm_over_cap_final": {
+        "title": "Projected size",
+        "description": "The projection of **{projected_gb} GB** is above your cap of **{cap_gb} GB**. The oldest tier is already as coarse as it goes. Shorten the history, raise the cap, or continue anyway."
+      },
+      "release_confirm": {
+        "title": "Hand purging back?",
+        "description": "Sediment owns purging at the moment. If you untick the takeover, Home Assistant's own purge turns on again. At its next nightly run (about 04:12) it **deletes everything older than {keep_days} days**. That includes all thinned history older than that. Tick the box only if you want that.",
+        "data": {
+          "release": "Yes, release purging and accept that older history is deleted"
+        }
+      }
+    },
+    "error": {
+      "invalid_rules": "Some rules are invalid: {rule_errors}",
+      "invalid_tiers": "Tier 1 must end before tier 2, and buckets must not shrink with age."
+    }
+  },
+  "options": {
+    "step": {
+      "history": {
+        "title": "History length",
+        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.",
+        "data": {
+          "history_choice": "History length",
+          "custom_days": "Custom length (days, used when you pick Custom)"
+        }
+      },
+      "resolution": {
+        "title": "Sediment resolution",
+        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.",
+        "data": {
+          "resolution": "Resolution",
+          "size_cap_gb": "Size cap (GB, optional)"
+        },
+        "data_description": {
+          "size_cap_gb": "A guard only. If the projected size is above the cap, Sediment offers a coarser oldest tier. It never thins newer data to fit."
+        }
+      },
+      "tiers": {
+        "title": "Custom tiers",
+        "description": "Three tiers, newest first. A tier lasts until the age you give. The last tier lasts to the end of the history length. The bucket is the time window in which Sediment keeps the extremes.",
+        "data": {
+          "t1_bucket_min": "Tier 1 bucket (minutes)",
+          "t1_until_days": "Tier 1 lasts until age (days)",
+          "t2_bucket_min": "Tier 2 bucket (minutes)",
+          "t2_until_days": "Tier 2 lasts until age (days)",
+          "t3_bucket_min": "Tier 3 bucket (minutes)"
+        }
+      },
+      "profiles": {
+        "title": "Profiles",
+        "description": "Every entity has one profile. **keep**: never thinned. **default**: thinned with the resolution you chose. **coarse**: wider buckets and a shorter horizon. **drop**: kept for the raw window only, then deleted.\n\nOne rule per line, first match wins: `selector = profile [flap|noflap]`. A selector is an entity id with `*` and `?`, or `domain:sensor`, `device_class:temperature`, `integration:my_integration`. `flap` or `noflap` overrides the flapping collapse for those entities. Lines starting with `#` are comments.\n\nExample: `sensor.cpu_* = coarse`\n\n{rule_errors}",
+        "data": {
+          "profile_rules": "Rules",
+          "flapping_collapse": "Collapse flapping"
+        },
+        "data_description": {
+          "flapping_collapse": "When on, Sediment reduces a burst of four or more state changes, each within a minute of the last, to its first and last change. This applies in the tiers from 1 hour on. When off, Sediment keeps every change."
+        }
+      },
+      "purging": {
+        "title": "Purging and retention",
+        "description": "The recorder currently keeps **{keep_days} days**, its automatic purge is **{auto_purge}** and its automatic repack is **{auto_repack}** (as configured when Home Assistant started).\n\nTick the box to let Sediment take over purging. Sediment then turns off the recorder's own nightly purge. It deletes events, short-term statistics and recorder runs itself, but not earlier than the recorder would have. It thins states instead of deleting them, and removes them only after the history length.\n\nOnce the takeover is applied, **thinned history depends on it**. If the recorder's purge came back, it would delete everything older than {keep_days} days at its next nightly run. Switching **dry run** on later only pauses thinning. The takeover stays applied. If the integration cannot work (for example after a Home Assistant update it was not tested with), it keeps the recorder from purging and raises a repair issue. Unticking the box asks for confirmation. Removing the integration hands purging back and tells you. Disabling it keeps purging off until Home Assistant restarts.\n\nSafety net: add `recorder: auto_purge: false` to `configuration.yaml`. Sediment cannot protect your history if it fails to load at all. The built-in purge then runs.\n\nWhile **dry run** is on and the takeover is not applied yet, Sediment computes everything, writes a report and deletes nothing. The recorder keeps purging as before.",
+        "data": {
+          "takeover": "Sediment takes over purging",
+          "raw_days": "Raw window (days)",
+          "dry_run": "Dry run"
+        },
+        "data_description": {
+          "takeover": "Needs a recorder version Sediment was tested with and a SQLite database. Otherwise nothing changes, and a repair issue explains why.",
+          "raw_days": "The newest rows stay untouched for this many days.",
+          "dry_run": "Compute and report only. Untick to start thinning for real."
+        }
+      },
+      "confirm": {
+        "title": "Projected size",
+        "description": "With these settings the database would be about **{projected_gb} GB** after {years} years ({rows_m} million state rows). Size cap: {cap_gb} GB.\n\nThe estimate starts from your recorder's real row rates and the built-in reference measurements. After a dry run it uses this installation's own numbers."
+      },
+      "confirm_over_cap": {
+        "title": "Projected size",
+        "description": "The projection of **{projected_gb} GB** is above your cap of **{cap_gb} GB**. Tick the box to make the oldest tier coarser and recalculate. Sediment never thins newer data to fit. Submit without ticking to keep the settings as they are.",
+        "data": {
+          "coarsen_oldest": "Make the oldest tier coarser"
+        }
+      },
+      "confirm_over_cap_final": {
+        "title": "Projected size",
+        "description": "The projection of **{projected_gb} GB** is above your cap of **{cap_gb} GB**. The oldest tier is already as coarse as it goes. Shorten the history, raise the cap, or continue anyway."
+      },
+      "release_confirm": {
+        "title": "Hand purging back?",
+        "description": "Sediment owns purging at the moment. If you untick the takeover, Home Assistant's own purge turns on again. At its next nightly run (about 04:12) it **deletes everything older than {keep_days} days**. That includes all thinned history older than that. Tick the box only if you want that.",
+        "data": {
+          "release": "Yes, release purging and accept that older history is deleted"
+        }
+      }
+    },
+    "error": {
+      "invalid_rules": "Some rules are invalid: {rule_errors}",
+      "invalid_tiers": "Tier 1 must end before tier 2, and buckets must not shrink with age."
+    }
+  },
+  "selector": {
+    "history_choice": {
+      "options": {
+        "1": "1 year",
+        "2": "2 years",
+        "5": "5 years",
+        "10": "10 years",
+        "custom": "Custom (days)"
+      }
+    },
+    "resolution": {
+      "options": {
+        "fine": "Fine",
+        "standard": "Standard",
+        "coarse": "Coarse",
+        "custom": "Custom"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "db_size": {
+        "name": "DB size"
+      },
+      "projected_size": {
+        "name": "Projected size"
+      }
+    }
+  },
+  "issues": {
+    "takeover_blocked": {
+      "title": "Sediment cannot take over purging",
+      "description": "Sediment is set to take over the recorder's purging. But this Home Assistant version or database differs from what Sediment was tested with. So Sediment left the recorder as it is: {reasons}\n\nSediment changes nothing while this issue is open. Update Sediment, or untick the takeover in its options."
+    },
+    "takeover_protecting": {
+      "title": "Sediment keeps the recorder from purging",
+      "description": "Sediment has taken over purging, but it cannot work with this Home Assistant version or database: {reasons}\n\nTo protect the thinned history, the recorder's automatic purge stays off, and Sediment thins and deletes nothing. Update Sediment. If you remove Sediment, purging goes back to the recorder. The recorder then deletes everything older than its configured keep days."
+    },
+    "unsupported_database": {
+      "title": "Sediment supports SQLite only",
+      "description": "{reason}. Sediment does not take over purging and does not thin or delete anything on this database. A dry run, which only reads, still works. If Sediment had taken over purging before, the recorder's automatic purge stays off."
+    },
+    "safety_net": {
+      "title": "Safety net: stop the built-in purge in configuration.yaml",
+      "description": "Set `recorder: auto_purge: false` in `configuration.yaml`. Then a failed Sediment load cannot hand your history to the built-in purge. Sediment takes over purging only after it has started. If it does not load (a failed update, a missing file), the recorder runs its own nightly purge and deletes everything older than its keep days."
+    },
+    "job_failing": {
+      "title": "Sediment's nightly job keeps failing",
+      "description": "The nightly job has failed {count} times in a row. Last errors: {errors}\n\nNothing is lost. Sediment retries the failing step, and the history length and cleanup steps still run. Check the log and the report in `sediment/last_report.json`."
+    },
+    "retention_inferred": {
+      "title": "Sediment found old history and holds the purge back",
+      "description": "Sediment found states that are {days} days old, older than the {keep_days} days the recorder keeps. Sediment cannot tell whether it thinned them earlier. So it holds back Home Assistant's own purge to protect them. This is safe: nothing is deleted.\n\nIf Sediment never thinned this database (for example you lowered the recorder's keep days), untick the takeover in the options. Sediment asks you to confirm, because the built-in purge then deletes everything older than {keep_days} days at its next nightly run."
+    }
+  },
+  "services": {
+    "run_now": {
+      "name": "Run now",
+      "description": "Run the thinning job once, outside the nightly schedule.",
+      "fields": {
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Compute and report without deleting. Leave empty to use the integration's setting."
+        }
+      }
+    },
+    "clear_quarantine": {
+      "name": "Clear quarantine",
+      "description": "Thin again, on the next run, the entity-days that Sediment skipped after errors."
+    },
+    "export_profile_map": {
+      "name": "Export profile map",
+      "description": "Write <config>/sediment/profile_map.json: entity, resolved profile, the profile signature and its hash. tools/merge_history.py --profile-map uses it so the import knows the profiles that only Home Assistant can see (integration, registry)."
+    },
+    "import_history": {
+      "name": "Import history",
+      "description": "Import older history from a file made by tools/merge_history.py. Sediment inserts only rows older than the oldest live row. A dry run reports and writes nothing.",
+      "fields": {
+        "path": {
+          "name": "File",
+          "description": "Path of the import database. Put it in <config>/sediment/."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Report what would be imported and write nothing. On by default."
+        }
+      }
+    }
+  }
+}

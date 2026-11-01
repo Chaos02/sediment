@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>sediment concept-b-chart</title>
+  <!-- Tile: dark rounded square, 12 percent corner radius -->
+  <rect width="512" height="512" rx="61.44" fill="#1f2933"/>
+  <!-- Time axis: L shaped axes, hand drawn -->
+  <path d="M100 100V404H424" fill="none" stroke="#e2e5e8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Old data: few samples, long straight segments. Recent data: many samples, fine zigzag -->
+  <polyline points="136,338 214,302" fill="none" stroke="#e2e5e8" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="294,302 316,330 334,280 352,322 370,272 388,314 406,262" fill="none" stroke="#e2e5e8" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="136" cy="338" r="15" fill="#e2e5e8"/>
+  <!-- The kept spike, in the accent -->
+  <polyline points="214,302 254,150 294,302" fill="none" stroke="#b3b3fe" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="254" cy="150" r="22" fill="#b3b3fe"/>
+</svg>

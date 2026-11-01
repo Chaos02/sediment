@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>sediment concept-b2-plain</title>
+  <!-- Tile: dark rounded square, 12 percent corner radius -->
+  <rect width="512" height="512" rx="61.44" fill="#1f2933"/>
+  <g transform="translate(-6 4)">
+    <!-- Time axis, hand drawn: oldest at the left, newest at the right -->
+    <path d="M100 100V404H424" fill="none" stroke="#e2e5e8" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Old data thinned out: long straight segments between a few kept points -->
+    <polyline points="134,342 178,322 206,316" fill="none" stroke="#e2e5e8" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="134" cy="342" r="16" fill="#e2e5e8"/>
+    <circle cx="178" cy="322" r="16" fill="#e2e5e8"/>
+    <circle cx="306" cy="326" r="16" fill="#e2e5e8"/>
+    <!-- The kept spike, in the accent -->
+    <polyline points="206,316 238,150 270,316" fill="none" stroke="#b3b3fe" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="238" cy="150" r="22" fill="#b3b3fe"/>
+    <polyline points="270,316 306,326" fill="none" stroke="#e2e5e8" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="206" cy="316" r="15" fill="#b3b3fe"/>
+    <circle cx="270" cy="316" r="15" fill="#b3b3fe"/>
+    <!-- Recent data kept in full: dense, thinner jagged line -->
+    <polyline points="306,326 319,300 332,330 345,292 358,322 371,284 384,314 397,276 410,306" fill="none" stroke="#e2e5e8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>sediment concept-c-strata</title>
+  <!-- Tile: dark rounded square, 12 percent corner radius -->
+  <rect width="512" height="512" rx="61.44" fill="#1f2933"/>
+  <!-- Strata, newest on top: the same time span in 16, 8, 4 and 1 cells; deeper rows are thicker -->
+  <g fill="#e2e5e8">
+    <rect x="96.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="116.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="137.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="157.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="178.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="198.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="219.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="239.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="260.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="280.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="301.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="321.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="342.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="362.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="383.00" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="403.50" y="132" width="12.50" height="44" rx="3"/>
+    <rect x="96.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="137.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="178.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="219.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="260.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="301.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="342.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="383.00" y="188" width="33.00" height="56" rx="3"/>
+    <rect x="96.00" y="256" width="74.00" height="68" rx="3"/>
+    <rect x="178.00" y="256" width="74.00" height="68" rx="3"/>
+    <rect x="260.00" y="256" width="74.00" height="68" rx="3"/>
+    <rect x="342.00" y="256" width="74.00" height="68" rx="3"/>
+    <rect x="96.00" y="336" width="320.00" height="80" rx="8"/>
+  </g>
+  <!-- One spike kept through every stratum: tile colored slot, then the accent bar -->
+  <rect x="186" y="132" width="44" height="284" fill="#1f2933"/>
+  <path d="M196 416V104a12 12 0 0 1 24 0V416Z" fill="#b3b3fe"/>
+</svg>

@@ -1,0 +1,298 @@
+# CI and release pipeline for Sediment.
+#
+# GitLab is the home of the project. GitHub (Chaos02/sediment) is a write-only
+# copy that exists because the Home Assistant Marketplace (HACS) installs from
+# GitHub Releases. A GitLab push mirror carries branches and tags to GitHub; the
+# tag pipeline below creates the GitHub Release. Setup: docs/releasing.md.
+#
+# Two runners of the Chaos02-oss group, picked by job tags (the same runners
+# and tags as marinated-updates and get-the-camera):
+#
+#   untrusted  An isolated amd64 VM with no secrets and no persistent cache.
+#              Jobs run as root. Every check runs here, also in tag pipelines.
+#   BUILD      The release builder. Protected to protected refs (main and the
+#              v* tags). Jobs run as uid 1001. Only the release job runs here,
+#              because it is the only job that needs a secret. It runs one job
+#              at a time and is shared with other projects.
+# Tags only route jobs; they are not a security boundary. The boundary is that
+# the BUILD runner is registered as ref_protected.
+#
+# The secret: GITHUB_RELEASE_TOKEN is a protected, masked variable with the
+# environment scope "release". Only the release job declares that environment,
+# so the checks, which run pip-installed code, never see the token, not even
+# in a tag pipeline.
+#
+# Pipelines run for:
+#   - a protected tag vX.Y.Z or vX.Y.Z-beta.N. Any protected v* tag starts a
+#     pipeline, so that a wrongly shaped tag fails visibly in tag-check. An
+#     unprotected tag gets no pipeline.
+#   - a merge request event. Jobs run only when the merge request changes a
+#     code path (below).
+#   - a push to main that changes a code path. A push that changes only docs,
+#     README or CHANGELOG gets no pipeline.
+#   - "Run pipeline" in the web UI or the API.
+# For the odd exception use `git push -o ci.skip`. Never put `[ci skip]` in a
+# commit message: a later tag on that commit would skip the release.
+#
+# Held release: `git push -o ci.variable="PUBLISH_HOLD=1" origin vX.Y.Z` runs
+# every check right away and parks the release job as a manual action. Pressing
+# Play on it is the release. Tags and releases need the maintainer's go.
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: &code_paths
+        - custom_components/**/*
+        - tests/**/*
+        - scripts/**/*
+        - hacs.json
+        - pyproject.toml
+        - requirements_test.txt
+        - .gitlab-ci.yml
+
+stages:
+  - check
+  - test
+  - release
+
+variables:
+  # Official python image, Debian bookworm, pinned by the multi-arch index
+  # digest (amd64 for the untrusted VM, arm64 for the release builder), fetched
+  # 2026-11-01 from hub.docker.com/v2/repositories/library/python/tags/<tag>.
+  # Python 3.14 is what Home Assistant 2026.9 and 2026.10 run on and what
+  # pytest-homeassistant-custom-component requires. The full image has git,
+  # curl and a compiler; the slim one only runs jobs that need pip and nothing
+  # else. Renew the digest when bumping the tag.
+  PY_FULL: "python:3.14.10-bookworm@sha256:a8cf203c684b61fd2676ec5a17159cf68ed38ad471481e1f4ebc4679825250bd"
+  PY_SLIM: "python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527"
+  # The image the hassfest GitHub Action runs (docker run ghcr.io/home-assistant/hassfest),
+  # pinned to the amd64 index digest of the tag "latest" on 2026-11-01. Renew it
+  # from time to time: hassfest follows the rules of the newest Home Assistant.
+  HASSFEST_IMAGE: "ghcr.io/home-assistant/hassfest@sha256:a6a695921327230c07ba89ebbb48778737bc1dda30b00cb60c9276585687fc6d"
+  # The pytest-homeassistant-custom-component release that pins the last patch
+  # of the previous Home Assistant minor (0.13.367 = Home Assistant 2026.9.4).
+  # The current one is pinned in requirements_test.txt. Move this when that
+  # file moves to a new minor.
+  HA_PREVIOUS_PLUGIN: "0.13.367"
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_ROOT_USER_ACTION: "ignore"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: $PY_FULL
+  # Repeat a job only when the infrastructure failed, never when its script
+  # failed. The release job is safe to repeat (see there).
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - api_failure
+      - scheduler_failure
+      - data_integrity_failure
+
+# Jobs without a secret. A merge request runs a job only when it changes a
+# code path; pushes to main are filtered in workflow:rules; tags and manual
+# pipelines always run everything.
+.untrusted:
+  tags:
+    - marinated
+    - untrusted
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths: *code_paths
+        compare_to: refs/heads/main
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - when: on_success
+
+# pip's download cache. The untrusted runner keeps nothing between jobs unless
+# an operator turned on a runner cache; then this makes the install fast.
+.pip_cache:
+  cache:
+    key:
+      prefix: pip-$CI_JOB_NAME
+      files:
+        - requirements_test.txt
+    paths:
+      - .cache/pip
+
+# The one definition of a release tag, in scripts/check_tag.py and
+# scripts/release_tools.py: vX.Y.Z is a final release, vX.Y.Z-beta.N a
+# pre-release, anything else is refused.
+#
+# Runs first in a tag pipeline (stage .pre), so a refused tag stops everything
+# else. The guards: the tag shape; the tag version equals manifest.json (a beta
+# is 0.1.0-beta.1 in both); the tag commit is on main; for vX.Y.Z a CHANGELOG
+# section for the version. The release job runs the same script again.
+tag-check:
+  stage: .pre
+  extends: .untrusted
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+  script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - python3 scripts/check_tag.py
+
+# ruff, pinned in requirements_test.txt.
+lint:
+  stage: check
+  extends: .untrusted
+  image: $PY_SLIM
+  script:
+    - pip install "$(grep -E '^ruff==' requirements_test.txt)"
+    - ruff --version
+    - ruff check .
+    - ruff format --check .
+
+# HA's own validation of custom_components/sediment, in the image the hassfest
+# GitHub Action uses. That image's entrypoint script looks for
+# custom_components/*/manifest.json in the working directory and runs
+# `python -m script.hassfest --action validate --integration-path <dir>`. The
+# entrypoint is cleared so the runner can start the job script, which then
+# calls the image's own script. It checks the manifest, translations, services,
+# config flow and dependencies. It does not look at brand/ or hacs.json; that
+# is scripts/check_hacs.py.
+hassfest:
+  stage: check
+  extends: .untrusted
+  image:
+    name: $HASSFEST_IMAGE
+    entrypoint: [""]
+  script:
+    - /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+
+# The file rules of the HACS repository validation. The real check (the
+# hacs/action container) reads the repository through the GitHub API and
+# cannot run here; see the header of scripts/check_hacs.py. A missing
+# brand/icon.png is a warning, and an error for a final release tag.
+hacs-check:
+  stage: check
+  extends: .untrusted
+  image: $PY_SLIM
+  script:
+    - |
+      set -eu
+      args=""
+      if printf '%s\n' "${CI_COMMIT_TAG:-}" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+        args="--require-brand"
+      fi
+      python3 scripts/check_hacs.py $args
+
+# pytest on the Home Assistant version pinned in requirements_test.txt.
+test-ha-current:
+  stage: test
+  extends:
+    - .untrusted
+    - .pip_cache
+  script:
+    - pip install -r requirements_test.txt
+    - pip list 2>/dev/null | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
+    - pytest --junitxml=report.xml
+  artifacts:
+    when: always
+    expire_in: 14 days
+    reports:
+      junit: report.xml
+
+# The same tests on the previous Home Assistant minor. The manifest asks for
+# Home Assistant 2026.10 or newer (hacs.json), so a failure here is allowed: it
+# shows whether the minimum could drop, and it warns early when the code starts
+# to rely on something new. When the current minor moves up, set
+# HA_PREVIOUS_PLUGIN to the plugin release of the last patch before it.
+test-ha-previous:
+  stage: test
+  extends:
+    - .untrusted
+    - .pip_cache
+  allow_failure: true
+  script:
+    - grep -v '^pytest-homeassistant-custom-component' requirements_test.txt > /tmp/requirements_previous.txt
+    - pip install -r /tmp/requirements_previous.txt "pytest-homeassistant-custom-component==$HA_PREVIOUS_PLUGIN"
+    - pip list 2>/dev/null | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
+    - pytest --junitxml=report.xml
+  artifacts:
+    when: always
+    expire_in: 14 days
+    reports:
+      junit: report.xml
+
+# Publishes a tag vX.Y.Z or vX.Y.Z-beta.N. In order:
+#   1. the tag guards again (scripts/check_tag.py), which also write the
+#      release notes: the CHANGELOG section for a final, the Unreleased section
+#      for a beta;
+#   2. builds dist/sediment.zip, the contents of custom_components/sediment
+#      (scripts/build_zip.py). The bytes depend only on the commit;
+#   3. uploads the zip to the generic package registry and creates the GitLab
+#      release with the notes and a link to it (scripts/gitlab_release.py);
+#   4. waits until the push mirror has the tag on GitHub, then creates or
+#      updates the GitHub Release through the API, a pre-release for betas,
+#      with the same zip attached (scripts/github_release.py).
+#
+# HACS installs from the tag, not from the zip (hacs.json has no zip_release).
+# The zip is for installing by hand.
+#
+# Safe to repeat: a package file with the same content is skipped, an existing
+# GitLab release is left alone, an existing GitHub release is updated and an
+# identical asset is kept. A package file with different content stops the job:
+# release the next version. If the wait for the mirror times out, check the
+# mirror (docs/releasing.md) and run the job again.
+release:
+  stage: release
+  tags:
+    - marinated
+    - BUILD
+  needs:
+    - job: tag-check
+      artifacts: false
+    - job: lint
+      artifacts: false
+    - job: hassfest
+      artifacts: false
+    - job: hacs-check
+      artifacts: false
+    - job: test-ha-current
+      artifacts: false
+  interruptible: false
+  resource_group: release
+  timeout: 45m
+  # The environment scope of GITHUB_RELEASE_TOKEN. No other job has one.
+  environment:
+    name: release
+    action: prepare
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-beta\.\d+)?$/ && $CI_COMMIT_REF_PROTECTED == "true" && $PUBLISH_HOLD'
+      when: manual
+      allow_failure: false
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-beta\.\d+)?$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+  before_script:
+    # The helper container checks the repo out as another uid than the job's:
+    # keep what this job leaves deletable, keep HOME inside the checkout (not
+    # a job variable, the helper would inherit it) and trust the checkout.
+    - umask 0000
+    - rm -rf "$CI_PROJECT_DIR/.home"
+    - mkdir -p "$CI_PROJECT_DIR/.home"
+    - export HOME="$CI_PROJECT_DIR/.home"
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+  script:
+    - python3 scripts/check_tag.py --notes-out release_notes.md
+    - python3 scripts/build_zip.py --out dist/sediment.zip
+    - python3 scripts/gitlab_release.py --notes-file release_notes.md
+    - python3 scripts/github_release.py --notes-file release_notes.md
+  artifacts:
+    paths:
+      - dist/sediment.zip
+      - release_notes.md
+    expire_in: 30 days

@@ -1,0 +1,13 @@
+{
+  "domain": "sediment",
+  "name": "Sediment",
+  "codeowners": ["@Chaos02"],
+  "config_flow": true,
+  "dependencies": ["recorder"],
+  "documentation": "https://gitlab.com/Chaos02-oss/sediment",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://gitlab.com/Chaos02-oss/sediment/-/issues",
+  "single_config_entry": true,
+  "version": "0.1.0-beta.1"
+}

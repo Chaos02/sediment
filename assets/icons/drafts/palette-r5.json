@@ -1,0 +1,47 @@
+{
+  "accent": {
+    "hex": "#18bcf2",
+    "source": "Home Assistant logo blue: fill in home-assistant.io source/images/favicon.svg, frontend ha-color-primary-50",
+    "oklch": [
+      0.744,
+      0.142,
+      228.2
+    ],
+    "contrast_on_tile": 6.68,
+    "contrast_on_paper": 5.62,
+    "vs_neutral": {
+      "normal": 0.224,
+      "protanopia": 0.159,
+      "deuteranopia": 0.218,
+      "tritanopia": 0.201
+    },
+    "vs_paper": {
+      "normal": 0.435,
+      "protanopia": 0.462,
+      "deuteranopia": 0.419,
+      "tritanopia": 0.452
+    },
+    "hue_gap_to_get_the_camera_6ec6ff": 10.8,
+    "hue_gap_to_teal": 41.7,
+    "simulated": {
+      "protanopia": "#9fb9f5",
+      "deuteranopia": "#85a6f1",
+      "tritanopia": "#00cbce"
+    }
+  },
+  "neutral": {
+    "hex": "#e2e5e8",
+    "contrast_on_tile": 11.67,
+    "contrast_on_paper": 9.8
+  },
+  "steps": {
+    "top": "vector",
+    "mid_cells": 18,
+    "low_cells": 10,
+    "cover_min": 0.12,
+    "cover_solid": 0.45,
+    "accent_min": 0.1,
+    "gap": 0.07,
+    "gap_units_per_side": 1.3
+  }
+}

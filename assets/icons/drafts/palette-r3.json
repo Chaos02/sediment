@@ -1,0 +1,111 @@
+{
+  "frontend primary-color": {
+    "hex": "#009ac7",
+    "oklch": [
+      0.641,
+      0.124,
+      227.6
+    ],
+    "contrast_on_tile": 4.53,
+    "contrast_on_paper": 3.81,
+    "vs_neutral": {
+      "normal": 0.304,
+      "protanopia": 0.254,
+      "deuteranopia": 0.304,
+      "tritanopia": 0.282
+    },
+    "vs_paper": {
+      "normal": 0.331,
+      "protanopia": 0.352,
+      "deuteranopia": 0.318,
+      "tritanopia": 0.348
+    },
+    "hue_gap_to_get_the_camera_6ec6ff": 11.4,
+    "hue_gap_to_teal": 41.1,
+    "hue_gap_to_amber": 158.9,
+    "simulated": {
+      "protanopia": "#8297c9",
+      "deuteranopia": "#6b88c6",
+      "tritanopia": "#00a7a9"
+    }
+  },
+  "logo blue": {
+    "hex": "#18bcf2",
+    "oklch": [
+      0.744,
+      0.142,
+      228.2
+    ],
+    "contrast_on_tile": 6.68,
+    "contrast_on_paper": 5.62,
+    "vs_neutral": {
+      "normal": 0.224,
+      "protanopia": 0.159,
+      "deuteranopia": 0.218,
+      "tritanopia": 0.201
+    },
+    "vs_paper": {
+      "normal": 0.435,
+      "protanopia": 0.462,
+      "deuteranopia": 0.419,
+      "tritanopia": 0.452
+    },
+    "hue_gap_to_get_the_camera_6ec6ff": 10.8,
+    "hue_gap_to_teal": 41.7,
+    "hue_gap_to_amber": 159.5,
+    "simulated": {
+      "protanopia": "#9fb9f5",
+      "deuteranopia": "#85a6f1",
+      "tritanopia": "#00cbce"
+    }
+  },
+  "classic light-blue": {
+    "hex": "#03a9f4",
+    "oklch": [
+      0.699,
+      0.157,
+      239.0
+    ],
+    "contrast_on_tile": 5.61,
+    "contrast_on_paper": 4.71,
+    "vs_neutral": {
+      "normal": 0.268,
+      "protanopia": 0.214,
+      "deuteranopia": 0.274,
+      "tritanopia": 0.23
+    },
+    "vs_paper": {
+      "normal": 0.397,
+      "protanopia": 0.421,
+      "deuteranopia": 0.382,
+      "tritanopia": 0.411
+    },
+    "hue_gap_to_get_the_camera_6ec6ff": 0.0,
+    "hue_gap_to_teal": 52.4,
+    "hue_gap_to_amber": 170.2,
+    "simulated": {
+      "protanopia": "#84aaf7",
+      "deuteranopia": "#6797f3",
+      "tritanopia": "#00bcc4"
+    }
+  },
+  "neutral": {
+    "hex": "#e2e5e8",
+    "contrast_on_tile": 11.67,
+    "contrast_on_paper": 9.8
+  },
+  "paper": {
+    "hex": "#29363f",
+    "contrast_on_tile": 1.19
+  },
+  "geometry": {
+    "dx": 243,
+    "dy": 100,
+    "step": 140,
+    "stack_width_pct": 94.9,
+    "stack_height_pct": 93.8,
+    "base_px": 64,
+    "mid_px": 32,
+    "low_px": 16
+  }
+}

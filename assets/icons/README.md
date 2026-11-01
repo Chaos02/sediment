@@ -1,0 +1,30 @@
+# Icons
+
+The Sediment icon shows three sheets of the same line chart, stacked. The top sheet is the full chart. The middle sheet is the same image at 18 x 18 cells. The bottom sheet is at 10 x 10 cells. Older data is coarser. The spike stays visible on every sheet. A clock with a reverse arrow (MDI `history`) sits at the lower right, on a cut-out disc.
+
+| File | Use |
+| --- | --- |
+| `sediment.svg` | Source. Dark rounded tile `#1f2933`, neutral `#e2e5e8`, accent `#18bcf2`, sheets `#29363f`. |
+| `sediment-512.png` | GitLab project avatar. |
+| `sediment-128.png` | README header and release notes. |
+| `../../custom_components/sediment/brand/icon.png` | Home Assistant brand icon, 256 x 256. |
+| `../../custom_components/sediment/brand/icon@2x.png` | Home Assistant brand icon, 512 x 512. |
+| `drafts/` | All earlier candidates, the generator scripts and their preview sheets. |
+
+There are no `logo` or `dark_` files. The icon is square, so the Home Assistant brands rules let it serve as the logo too. The dark tile works on light and dark themes.
+
+## Colors
+
+The accent is the Home Assistant logo blue `#18bcf2`. Contrast on the tile is 6.68:1. The OKLab distance to the neutral is 0.159 under protanopia, 0.218 under deuteranopia and 0.201 under tritanopia. All three are above the 0.10 minimum. The numbers are in `drafts/palette-r5.json`.
+
+## License of the glyph
+
+The clock is path data from [Material Design Icons](https://pictogrammers.com/library/mdi/) by Pictogrammers. Only scale and position changed. The Apache License 2.0 applies:
+
+> Copyright (c) Pictogrammers. Licensed under the Apache License, Version 2.0. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Source: https://github.com/Templarian/MaterialDesign (`svg/history.svg`, 24x24 viewBox).
+
+## How to regenerate
+
+`py -3 -m pip install --user resvg-py Pillow`, then `py -3 assets/icons/drafts/r5.py --export`.

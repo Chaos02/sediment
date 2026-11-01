@@ -1,0 +1,305 @@
+{
+  "rule": "1. Dart. hue = int(sha256(seed).hexdigest(), 16) mod 360, seed \"sediment\", then\n   \"sediment#2\", \"sediment#3\" and so on. A hue within 25 degrees (OKLCH hue) of an\n   accent already used in the family is skipped. Used accents: teal #4fd1c5 and\n   amber #f6ad55 (marinated-updates), blue #6ec6ff (get-the-camera, final icon).\n2. Accent lightness and chroma are the mean of the three used accents in OKLCH, with\n   chroma lowered until the color fits sRGB. If the WCAG contrast on the tile #1f2933\n   is below 4.5:1, lightness is raised.\n3. Neutral base: OKLCH L 0.92, C 0.006, hue 250 (the tile's hue), which is #e2e5e8.\n4. Color-blind check. Accent and neutral are simulated for protanopia, deuteranopia and\n   tritanopia (Machado, Oliveira and Fernandes 2009, severity 1.0, linear sRGB). The\n   distance is the Euclidean distance in OKLab and must be at least 0.10 under all\n   three. If it is not, accent lightness is moved in 0.02 steps.\n5. Variants: the dart, complementary (h+180), split-complementary (h+150, h+210),\n   triadic (h+120, h+240) and two more darts. Partners within 25 degrees of a used\n   accent are dropped.",
+  "siblings": {
+    "teal (marinated-updates, bestbefore)": {
+      "hex": "#4fd1c5",
+      "L": 0.786,
+      "C": 0.114,
+      "h": 186.6
+    },
+    "amber (marinated-updates, marinade)": {
+      "hex": "#f6ad55",
+      "L": 0.801,
+      "C": 0.134,
+      "h": 68.8
+    },
+    "blue (get-the-camera)": {
+      "hex": "#6ec6ff",
+      "L": 0.794,
+      "C": 0.118,
+      "h": 239.0
+    }
+  },
+  "draft_hues_reported_only": {
+    "grape D3": {
+      "hue": 281,
+      "gap_to_chosen": 3
+    },
+    "D-round 41": {
+      "hue": 41,
+      "gap_to_chosen": 117
+    },
+    "D-round 131": {
+      "hue": 131,
+      "gap_to_chosen": 153
+    },
+    "D-round 101": {
+      "hue": 101,
+      "gap_to_chosen": 177
+    }
+  },
+  "darts": [
+    {
+      "seed": "sediment",
+      "hue": 62,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 124.6,
+        "amber (marinated-updates, marinade)": 6.8,
+        "blue (get-the-camera)": 177.0
+      },
+      "accepted": false
+    },
+    {
+      "seed": "sediment#2",
+      "hue": 60,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 126.6,
+        "amber (marinated-updates, marinade)": 8.8,
+        "blue (get-the-camera)": 179.0
+      },
+      "accepted": false
+    },
+    {
+      "seed": "sediment#3",
+      "hue": 187,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 0.4,
+        "amber (marinated-updates, marinade)": 118.2,
+        "blue (get-the-camera)": 52.0
+      },
+      "accepted": false
+    },
+    {
+      "seed": "sediment#4",
+      "hue": 284,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 97.4,
+        "amber (marinated-updates, marinade)": 144.8,
+        "blue (get-the-camera)": 45.0
+      },
+      "accepted": true
+    },
+    {
+      "seed": "sediment#5",
+      "hue": 119,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 67.6,
+        "amber (marinated-updates, marinade)": 50.2,
+        "blue (get-the-camera)": 120.0
+      },
+      "accepted": true
+    },
+    {
+      "seed": "sediment#6",
+      "hue": 352,
+      "gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 165.4,
+        "amber (marinated-updates, marinade)": 76.8,
+        "blue (get-the-camera)": 113.0
+      },
+      "accepted": true
+    }
+  ],
+  "target_L": 0.794,
+  "target_C": 0.122,
+  "neutral": {
+    "hex": "#e2e5e8",
+    "oklch": [
+      0.92,
+      0.006,
+      250.0
+    ],
+    "contrast_on_tile": 11.67
+  },
+  "accent": {
+    "hex": "#b3b3fe",
+    "oklch": [
+      0.794,
+      0.106,
+      283.731
+    ],
+    "contrast_on_tile": 7.59,
+    "vs_neutral": {
+      "normal": 0.162,
+      "protanopia": 0.157,
+      "deuteranopia": 0.167,
+      "tritanopia": 0.134
+    },
+    "hue_gap_to_siblings": {
+      "teal (marinated-updates, bestbefore)": 97.2,
+      "amber (marinated-updates, marinade)": 145.1,
+      "blue (get-the-camera)": 44.7
+    },
+    "simulated": {
+      "protanopia": "#9ebcff",
+      "deuteranopia": "#9bb7fc",
+      "tritanopia": "#a1c1ce"
+    },
+    "nudge": null
+  },
+  "variants": {
+    "dart": {
+      "hue": 284,
+      "dropped": false,
+      "accent": "#b3b3fe",
+      "nudge": null,
+      "hex": "#b3b3fe",
+      "oklch": [
+        0.794,
+        0.106,
+        283.731
+      ],
+      "contrast_on_tile": 7.59,
+      "vs_neutral": {
+        "normal": 0.162,
+        "protanopia": 0.157,
+        "deuteranopia": 0.167,
+        "tritanopia": 0.134
+      },
+      "hue_gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 97.2,
+        "amber (marinated-updates, marinade)": 145.1,
+        "blue (get-the-camera)": 44.7
+      },
+      "simulated": {
+        "protanopia": "#9ebcff",
+        "deuteranopia": "#9bb7fc",
+        "tritanopia": "#a1c1ce"
+      }
+    },
+    "complementary 104": {
+      "hue": 104,
+      "dropped": false,
+      "accent": "#c9c05c",
+      "nudge": null,
+      "hex": "#c9c05c",
+      "oklch": [
+        0.795,
+        0.122,
+        104.131
+      ],
+      "contrast_on_tile": 7.85,
+      "vs_neutral": {
+        "normal": 0.178,
+        "protanopia": 0.188,
+        "deuteranopia": 0.17,
+        "tritanopia": 0.131
+      },
+      "hue_gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 82.4,
+        "amber (marinated-updates, marinade)": 35.3,
+        "blue (get-the-camera)": 134.9
+      },
+      "simulated": {
+        "protanopia": "#cfba52",
+        "deuteranopia": "#d2bf61",
+        "tritanopia": "#d6b5aa"
+      }
+    },
+    "split-complementary 74": {
+      "hue": 74,
+      "dropped": true,
+      "accent": null,
+      "nudge": "dropped: within 25 degrees of a used accent"
+    },
+    "split-complementary 134": {
+      "hue": 134,
+      "dropped": false,
+      "accent": "#9bcd7b",
+      "nudge": null,
+      "hex": "#9bcd7b",
+      "oklch": [
+        0.794,
+        0.122,
+        134.027
+      ],
+      "contrast_on_tile": 8.02,
+      "vs_neutral": {
+        "normal": 0.177,
+        "protanopia": 0.152,
+        "deuteranopia": 0.15,
+        "tritanopia": 0.135
+      },
+      "hue_gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 52.5,
+        "amber (marinated-updates, marinade)": 65.2,
+        "blue (get-the-camera)": 105.0
+      },
+      "simulated": {
+        "protanopia": "#d3c275",
+        "deuteranopia": "#ccbd80",
+        "tritanopia": "#9bc7b9"
+      }
+    },
+    "triadic 44": {
+      "hue": 44,
+      "dropped": true,
+      "accent": null,
+      "nudge": "dropped: within 25 degrees of a used accent"
+    },
+    "triadic 164": {
+      "hue": 164,
+      "dropped": true,
+      "accent": null,
+      "nudge": "dropped: within 25 degrees of a used accent"
+    },
+    "extra dart sediment#5": {
+      "hue": 119,
+      "dropped": false,
+      "accent": "#b3c769",
+      "nudge": null,
+      "hex": "#b3c769",
+      "oklch": [
+        0.794,
+        0.122,
+        119.15
+      ],
+      "contrast_on_tile": 7.93,
+      "vs_neutral": {
+        "normal": 0.178,
+        "protanopia": 0.172,
+        "deuteranopia": 0.162,
+        "tritanopia": 0.127
+      },
+      "hue_gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 67.4,
+        "amber (marinated-updates, marinade)": 50.4,
+        "blue (get-the-camera)": 119.9
+      },
+      "simulated": {
+        "protanopia": "#d1be61",
+        "deuteranopia": "#cfbe6e",
+        "tritanopia": "#bbbeb1"
+      }
+    },
+    "extra dart sediment#6": {
+      "hue": 352,
+      "dropped": false,
+      "accent": "#f89ac4",
+      "nudge": null,
+      "hex": "#f89ac4",
+      "oklch": [
+        0.794,
+        0.123,
+        351.945
+      ],
+      "contrast_on_tile": 7.31,
+      "vs_neutral": {
+        "normal": 0.177,
+        "protanopia": 0.176,
+        "deuteranopia": 0.121,
+        "tritanopia": 0.186
+      },
+      "hue_gap_to_siblings": {
+        "teal (marinated-updates, bestbefore)": 165.4,
+        "amber (marinated-updates, marinade)": 76.8,
+        "blue (get-the-camera)": 112.9
+      },
+      "simulated": {
+        "protanopia": "#a4adc6",
+        "deuteranopia": "#bbbdc2",
+        "tritanopia": "#ff97a9"
+      }
+    }
+  }
+}

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>sediment</title>
+  <!-- Tile: dark rounded square, 12 percent corner radius -->
+  <rect width="512" height="512" rx="61.44" fill="#1f2933"/>
+  <!-- Bottom sheet: the chart image at 6 x 6 cells, hard edged, two tones per color -->
+  <polygon points="256.0,296.0 499.0,396.0 256.0,496.0 13.0,396.0" fill="#29363f" stroke="#1f2933" stroke-width="22" stroke-linejoin="round" paint-order="stroke"/>
+  <polygon points="256.0,296.0 499.0,396.0 256.0,496.0 13.0,396.0" fill="#29363f"/>
+  <g>
+    <polygon points="256.0,298.3 290.8,312.7 256.0,327.0 221.2,312.7" fill="#7c858b"/>
+    <polygon points="337.0,331.7 371.8,346.0 337.0,360.3 302.2,346.0" fill="#7c858b"/>
+    <polygon points="215.5,315.0 250.3,329.3 215.5,343.7 180.7,329.3" fill="#7c858b"/>
+    <polygon points="296.5,348.3 331.3,362.7 296.5,377.0 261.7,362.7" fill="#18bcf2"/>
+    <polygon points="175.0,331.7 209.8,346.0 175.0,360.3 140.2,346.0" fill="#7c858b"/>
+    <polygon points="256.0,365.0 290.8,379.3 256.0,393.7 221.2,379.3" fill="#18bcf2"/>
+    <polygon points="134.5,348.3 169.3,362.7 134.5,377.0 99.7,362.7" fill="#7c858b"/>
+    <polygon points="175.0,365.0 209.8,379.3 175.0,393.7 140.2,379.3" fill="#7c858b"/>
+    <polygon points="215.5,381.7 250.3,396.0 215.5,410.3 180.7,396.0" fill="#18bcf2"/>
+    <polygon points="256.0,398.3 290.8,412.7 256.0,427.0 221.2,412.7" fill="#207998"/>
+    <polygon points="296.5,415.0 331.3,429.3 296.5,443.7 261.7,429.3" fill="#e2e5e8"/>
+    <polygon points="337.0,431.7 371.8,446.0 337.0,460.3 302.2,446.0" fill="#7c858b"/>
+    <polygon points="94.0,365.0 128.8,379.3 94.0,393.7 59.2,379.3" fill="#7c858b"/>
+    <polygon points="134.5,381.7 169.3,396.0 134.5,410.3 99.7,396.0" fill="#7c858b"/>
+    <polygon points="215.5,415.0 250.3,429.3 215.5,443.7 180.7,429.3" fill="#7c858b"/>
+    <polygon points="53.5,381.7 88.3,396.0 53.5,410.3 18.7,396.0" fill="#7c858b"/>
+    <polygon points="94.0,398.3 128.8,412.7 94.0,427.0 59.2,412.7" fill="#7c858b"/>
+    <polygon points="134.5,415.0 169.3,429.3 134.5,443.7 99.7,429.3" fill="#7c858b"/>
+    <polygon points="175.0,431.7 209.8,446.0 175.0,460.3 140.2,446.0" fill="#7c858b"/>
+    <polygon points="215.5,448.3 250.3,462.7 215.5,477.0 180.7,462.7" fill="#7c858b"/>
+    <polygon points="256.0,465.0 290.8,479.3 256.0,493.7 221.2,479.3" fill="#7c858b"/>
+  </g>
+  <!-- Middle sheet: the same image at 12 x 12 cells -->
+  <polygon points="256.0,156.0 499.0,256.0 256.0,356.0 13.0,256.0" fill="#29363f" stroke="#1f2933" stroke-width="22" stroke-linejoin="round" paint-order="stroke"/>
+  <polygon points="256.0,156.0 499.0,256.0 256.0,356.0 13.0,256.0" fill="#29363f"/>
+  <g>
+    <polygon points="256.0,157.2 273.4,164.3 256.0,171.5 238.6,164.3" fill="#7c858b"/>
+    <polygon points="276.2,165.5 293.7,172.7 276.2,179.8 258.8,172.7" fill="#7c858b"/>
+    <polygon points="296.5,173.8 313.9,181.0 296.5,188.2 279.1,181.0" fill="#7c858b"/>
+    <polygon points="316.8,182.2 334.2,189.3 316.8,196.5 299.3,189.3" fill="#7c858b"/>
+    <polygon points="337.0,190.5 354.4,197.7 337.0,204.8 319.6,197.7" fill="#7c858b"/>
+    <polygon points="357.2,198.8 374.7,206.0 357.2,213.2 339.8,206.0" fill="#7c858b"/>
+    <polygon points="377.5,207.2 394.9,214.3 377.5,221.5 360.1,214.3" fill="#7c858b"/>
+    <polygon points="397.8,215.5 415.2,222.7 397.8,229.8 380.3,222.7" fill="#7c858b"/>
+    <polygon points="418.0,223.8 435.4,231.0 418.0,238.2 400.6,231.0" fill="#7c858b"/>
+    <polygon points="438.2,232.2 455.7,239.3 438.2,246.5 420.8,239.3" fill="#7c858b"/>
+    <polygon points="458.5,240.5 475.9,247.7 458.5,254.8 441.1,247.7" fill="#7c858b"/>
+    <polygon points="235.8,165.5 253.2,172.7 235.8,179.8 218.3,172.7" fill="#e2e5e8"/>
+    <polygon points="337.0,207.2 354.4,214.3 337.0,221.5 319.6,214.3" fill="#207998"/>
+    <polygon points="458.5,257.2 475.9,264.3 458.5,271.5 441.1,264.3" fill="#7c858b"/>
+    <polygon points="215.5,173.8 232.9,181.0 215.5,188.2 198.1,181.0" fill="#e2e5e8"/>
+    <polygon points="296.5,207.2 313.9,214.3 296.5,221.5 279.1,214.3" fill="#18bcf2"/>
+    <polygon points="316.8,215.5 334.2,222.7 316.8,229.8 299.3,222.7" fill="#18bcf2"/>
+    <polygon points="438.2,265.5 455.7,272.7 438.2,279.8 420.8,272.7" fill="#7c858b"/>
+    <polygon points="195.2,182.2 212.7,189.3 195.2,196.5 177.8,189.3" fill="#e2e5e8"/>
+    <polygon points="276.2,215.5 293.7,222.7 276.2,229.8 258.8,222.7" fill="#207998"/>
+    <polygon points="296.5,223.8 313.9,231.0 296.5,238.2 279.1,231.0" fill="#18bcf2"/>
+    <polygon points="418.0,273.8 435.4,281.0 418.0,288.2 400.6,281.0" fill="#7c858b"/>
+    <polygon points="175.0,190.5 192.4,197.7 175.0,204.8 157.6,197.7" fill="#e2e5e8"/>
+    <polygon points="256.0,223.8 273.4,231.0 256.0,238.2 238.6,231.0" fill="#18bcf2"/>
+    <polygon points="276.2,232.2 293.7,239.3 276.2,246.5 258.8,239.3" fill="#18bcf2"/>
+    <polygon points="397.8,282.2 415.2,289.3 397.8,296.5 380.3,289.3" fill="#7c858b"/>
+    <polygon points="154.8,198.8 172.2,206.0 154.8,213.2 137.3,206.0" fill="#e2e5e8"/>
+    <polygon points="235.8,232.2 253.2,239.3 235.8,246.5 218.3,239.3" fill="#18bcf2"/>
+    <polygon points="256.0,240.5 273.4,247.7 256.0,254.8 238.6,247.7" fill="#18bcf2"/>
+    <polygon points="377.5,290.5 394.9,297.7 377.5,304.8 360.1,297.7" fill="#7c858b"/>
+    <polygon points="134.5,207.2 151.9,214.3 134.5,221.5 117.1,214.3" fill="#e2e5e8"/>
+    <polygon points="215.5,240.5 232.9,247.7 215.5,254.8 198.1,247.7" fill="#18bcf2"/>
+    <polygon points="235.8,248.8 253.2,256.0 235.8,263.2 218.3,256.0" fill="#18bcf2"/>
+    <polygon points="256.0,257.2 273.4,264.3 256.0,271.5 238.6,264.3" fill="#207998"/>
+    <polygon points="316.8,282.2 334.2,289.3 316.8,296.5 299.3,289.3" fill="#7c858b"/>
+    <polygon points="337.0,290.5 354.4,297.7 337.0,304.8 319.6,297.7" fill="#7c858b"/>
+    <polygon points="357.2,298.8 374.7,306.0 357.2,313.2 339.8,306.0" fill="#7c858b"/>
+    <polygon points="114.3,215.5 131.7,222.7 114.3,229.8 96.8,222.7" fill="#e2e5e8"/>
+    <polygon points="175.0,240.5 192.4,247.7 175.0,254.8 157.6,247.7" fill="#207998"/>
+    <polygon points="195.2,248.8 212.7,256.0 195.2,263.2 177.8,256.0" fill="#18bcf2"/>
+    <polygon points="215.5,257.2 232.9,264.3 215.5,271.5 198.1,264.3" fill="#207998"/>
+    <polygon points="235.8,265.5 253.2,272.7 235.8,279.8 218.3,272.7" fill="#207998"/>
+    <polygon points="256.0,273.8 273.4,281.0 256.0,288.2 238.6,281.0" fill="#e2e5e8"/>
+    <polygon points="276.2,282.2 293.7,289.3 276.2,296.5 258.8,289.3" fill="#e2e5e8"/>
+    <polygon points="296.5,290.5 313.9,297.7 296.5,304.8 279.1,297.7" fill="#e2e5e8"/>
+    <polygon points="316.8,298.8 334.2,306.0 316.8,313.2 299.3,306.0" fill="#7c858b"/>
+    <polygon points="337.0,307.2 354.4,314.3 337.0,321.5 319.6,314.3" fill="#7c858b"/>
+    <polygon points="94.0,223.8 111.4,231.0 94.0,238.2 76.6,231.0" fill="#e2e5e8"/>
+    <polygon points="114.3,232.2 131.7,239.3 114.3,246.5 96.8,239.3" fill="#e2e5e8"/>
+    <polygon points="134.5,240.5 151.9,247.7 134.5,254.8 117.1,247.7" fill="#e2e5e8"/>
+    <polygon points="154.8,248.8 172.2,256.0 154.8,263.2 137.3,256.0" fill="#7c858b"/>
+    <polygon points="175.0,257.2 192.4,264.3 175.0,271.5 157.6,264.3" fill="#7c858b"/>
+    <polygon points="215.5,273.8 232.9,281.0 215.5,288.2 198.1,281.0" fill="#7c858b"/>
+    <polygon points="235.8,282.2 253.2,289.3 235.8,296.5 218.3,289.3" fill="#e2e5e8"/>
+    <polygon points="256.0,290.5 273.4,297.7 256.0,304.8 238.6,297.7" fill="#7c858b"/>
+    <polygon points="316.8,315.5 334.2,322.7 316.8,329.8 299.3,322.7" fill="#7c858b"/>
+    <polygon points="73.8,232.2 91.2,239.3 73.8,246.5 56.3,239.3" fill="#e2e5e8"/>
+    <polygon points="94.0,240.5 111.4,247.7 94.0,254.8 76.6,247.7" fill="#7c858b"/>
+    <polygon points="296.5,323.8 313.9,331.0 296.5,338.2 279.1,331.0" fill="#7c858b"/>
+    <polygon points="53.5,240.5 70.9,247.7 53.5,254.8 36.1,247.7" fill="#e2e5e8"/>
+    <polygon points="73.8,248.8 91.2,256.0 73.8,263.2 56.3,256.0" fill="#7c858b"/>
+    <polygon points="276.2,332.2 293.7,339.3 276.2,346.5 258.8,339.3" fill="#7c858b"/>
+    <polygon points="33.2,248.8 50.7,256.0 33.2,263.2 15.8,256.0" fill="#7c858b"/>
+    <polygon points="53.5,257.2 70.9,264.3 53.5,271.5 36.1,264.3" fill="#e2e5e8"/>
+    <polygon points="73.8,265.5 91.2,272.7 73.8,279.8 56.3,272.7" fill="#e2e5e8"/>
+    <polygon points="94.0,273.8 111.4,281.0 94.0,288.2 76.6,281.0" fill="#e2e5e8"/>
+    <polygon points="114.3,282.2 131.7,289.3 114.2,296.5 96.8,289.3" fill="#e2e5e8"/>
+    <polygon points="134.5,290.5 151.9,297.7 134.5,304.8 117.1,297.7" fill="#e2e5e8"/>
+    <polygon points="154.8,298.8 172.2,306.0 154.8,313.2 137.3,306.0" fill="#e2e5e8"/>
+    <polygon points="175.0,307.2 192.4,314.3 175.0,321.5 157.6,314.3" fill="#e2e5e8"/>
+    <polygon points="195.2,315.5 212.7,322.7 195.2,329.8 177.8,322.7" fill="#e2e5e8"/>
+    <polygon points="215.5,323.8 232.9,331.0 215.5,338.2 198.1,331.0" fill="#e2e5e8"/>
+    <polygon points="235.8,332.2 253.2,339.3 235.8,346.5 218.3,339.3" fill="#e2e5e8"/>
+    <polygon points="256.0,340.5 273.4,347.7 256.0,354.8 238.6,347.7" fill="#7c858b"/>
+  </g>
+  <!-- Top sheet: the framed chart as vector, skewed onto the sheet plane -->
+  <polygon points="256.0,16.0 499.0,116.0 256.0,216.0 13.0,116.0" fill="#29363f" stroke="#1f2933" stroke-width="22" stroke-linejoin="round" paint-order="stroke"/>
+  <polygon points="256.0,16.0 499.0,116.0 256.0,216.0 13.0,116.0" fill="#29363f"/>
+  <g transform="matrix(0.94922 0.39062 -0.94922 0.39062 256 16.0)">
+<path d="M16 16V240H240" fill="none" stroke="#e2e5e8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16 16H240V240" fill="none" stroke="#e2e5e8" stroke-width="4"/>
+<polyline points="40.0,185.4 69.0,171.4 87.5,167.2" fill="none" stroke="#e2e5e8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="129.8,167.2 153.5,174.2" fill="none" stroke="#e2e5e8" stroke-width="12" stroke-linecap="round"/>
+<circle cx="40.0" cy="185.4" r="10" fill="#e2e5e8"/>
+<circle cx="69.0" cy="171.4" r="10" fill="#e2e5e8"/>
+<circle cx="153.5" cy="174.2" r="10" fill="#e2e5e8"/>
+<polyline points="87.5,167.2 108.6,51.0 129.8,167.2" fill="none" stroke="#18bcf2" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="108.6" cy="51.0" r="14" fill="#18bcf2"/>
+<circle cx="87.5" cy="167.2" r="9" fill="#18bcf2"/>
+<circle cx="129.8" cy="167.2" r="9" fill="#18bcf2"/>
+<polyline points="153.5,174.2 162.1,156.0 170.7,177.0 179.3,150.4 187.8,171.4 196.4,144.8 205.0,165.8 213.6,139.2 222.2,160.2" fill="none" stroke="#e2e5e8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Badge: MDI history (Apache 2.0), 20 percent of the tile, on a cut-out disc that removes the sheets behind it -->
+  <circle cx="432" cy="432" r="64" fill="#1f2933"/>
+  <path transform="translate(376.1 373.7) scale(4.86)" fill="#e2e5e8" d="M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3"/>
+</svg>

@@ -1,0 +1,22 @@
+run_now:
+  fields:
+    dry_run:
+      required: false
+      selector:
+        boolean:
+
+clear_quarantine: {}
+
+import_history:
+  fields:
+    path:
+      required: true
+      selector:
+        text:
+    dry_run:
+      required: false
+      default: true
+      selector:
+        boolean:
+
+export_profile_map: {}
