@@ -66,7 +66,7 @@ The tag has to be protected (see setup), and its commit has to be on `main`.
 | --- | --- | --- |
 | `tag-check` | tags | Tag shape, tag equals manifest version, tag commit is on `main`, CHANGELOG section for finals |
 | `lint` | all | `ruff check` and `ruff format --check`, with the ruff version from `requirements_test.txt` |
-| `hassfest` | all | Home Assistant's own validation of `custom_components/sediment`, in the image the hassfest GitHub Action uses |
+| `hassfest` | all | Home Assistant's own validation of `custom_components/sediment`. It runs the same program as the hassfest GitHub Action, from a checkout of Home Assistant core at the version that `requirements_test.txt` pins |
 | `hacs-check` | all | `scripts/check_hacs.py`: `hacs.json`, one integration, manifest keys, `brand/` icon, README |
 | `test-ha-current` | all | pytest on the Home Assistant version pinned in `requirements_test.txt` |
 | `test-ha-previous` | all | The same tests on the previous Home Assistant minor. May fail without failing the pipeline, because `hacs.json` asks for the newer minor |
@@ -74,6 +74,11 @@ The tag has to be protected (see setup), and its commit has to be on `main`.
 
 Pipelines run for merge requests, pushes to `main` and protected tags. A change
 that only touches docs, README or CHANGELOG starts no pipeline.
+
+Every job runs in the same pinned base image. Python 3.14 comes from `uv`, which
+each job downloads at a pinned version and checks by checksum. When you bump the
+Home Assistant pin in `requirements_test.txt`, the hassfest job follows it by
+itself. `HA_PREVIOUS_PLUGIN` in `.gitlab-ci.yml` is the one other version to move.
 
 ### Why the HACS check is a script
 

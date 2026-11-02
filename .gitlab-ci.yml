@@ -5,6 +5,15 @@
 # GitHub Releases. A GitLab push mirror carries branches and tags to GitHub; the
 # tag pipeline below creates the GitHub Release. Setup: docs/releasing.md.
 #
+# Images: the runners only start images from an allowlist (rust, debian, alpine,
+# fedora, archlinux and the GitLab security scanners). Every job here uses the
+# official rust image, pinned by digest, the one get-the-camera already runs on
+# both runners. It has git, curl and a C compiler, and needs no apt (the release
+# job runs as an unprivileged user and cannot install packages). Python 3.14 is
+# not in it, so every job installs a pinned uv, checked by sha256, and uv fetches
+# a managed Python 3.14. Nothing is pulled from ghcr.io or from Docker Hub
+# outside the allowlist.
+#
 # Two runners of the Chaos02-oss group, picked by job tags (the same runners
 # and tags as marinated-updates and get-the-camera):
 #
@@ -19,7 +28,7 @@
 #
 # The secret: GITHUB_RELEASE_TOKEN is a protected, masked variable with the
 # environment scope "release". Only the release job declares that environment,
-# so the checks, which run pip-installed code, never see the token, not even
+# so the checks, which run installed packages, never see the token, not even
 # in a tag pipeline.
 #
 # Pipelines run for:
@@ -62,31 +71,40 @@ stages:
   - release
 
 variables:
-  # Official python image, Debian bookworm, pinned by the multi-arch index
-  # digest (amd64 for the untrusted VM, arm64 for the release builder), fetched
-  # 2026-11-01 from hub.docker.com/v2/repositories/library/python/tags/<tag>.
-  # Python 3.14 is what Home Assistant 2026.9 and 2026.10 run on and what
-  # pytest-homeassistant-custom-component requires. The full image has git,
-  # curl and a compiler; the slim one only runs jobs that need pip and nothing
-  # else. Renew the digest when bumping the tag.
-  PY_FULL: "python:3.14.10-bookworm@sha256:a8cf203c684b61fd2676ec5a17159cf68ed38ad471481e1f4ebc4679825250bd"
-  PY_SLIM: "python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527"
-  # The image the hassfest GitHub Action runs (docker run ghcr.io/home-assistant/hassfest),
-  # pinned to the amd64 index digest of the tag "latest" on 2026-11-01. Renew it
-  # from time to time: hassfest follows the rules of the newest Home Assistant.
-  HASSFEST_IMAGE: "ghcr.io/home-assistant/hassfest@sha256:a6a695921327230c07ba89ebbb48778737bc1dda30b00cb60c9276585687fc6d"
+  # Official rust image, Debian bookworm, pinned by the multi-arch index digest
+  # (amd64 for the untrusted VM, arm64 for the release builder). The same image
+  # and digest as get-the-camera, fetched 2026-10-24 from
+  # hub.docker.com/v2/repositories/library/rust/tags/1.98.1-bookworm. It is only
+  # the base for git, curl and gcc; the Rust toolchain in it is not used.
+  # Renew the digest when bumping the tag.
+  BASE_IMAGE: "rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e"
+  # uv, downloaded from its GitHub release and checked against these sha256
+  # values (from the release's own .sha256 files, 0.13.6 of 2026-10-27). The
+  # tarballs are the x86_64 and aarch64 gnu builds. Bump all three together.
+  UV_VERSION: "0.13.6"
+  UV_SHA256_AMD64: "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
+  UV_SHA256_ARM64: "229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d"
+  # Python for every job: the test environment's 3.14.10 (Home Assistant 2026.9
+  # and 2026.10 run on 3.14, and the test plugin requires it; the pinned uv must
+  # know this build). uv checks the interpreter download against hashes built
+  # into uv itself, so the uv pin also pins the Python build.
+  PYTHON_VERSION: "3.14.10"
   # The pytest-homeassistant-custom-component release that pins the last patch
   # of the previous Home Assistant minor (0.13.367 = Home Assistant 2026.9.4).
   # The current one is pinned in requirements_test.txt. Move this when that
   # file moves to a new minor.
   HA_PREVIOUS_PLUGIN: "0.13.367"
   PYTHONUNBUFFERED: "1"
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  PIP_ROOT_USER_ACTION: "ignore"
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  # uv's download cache and managed Pythons live in the checkout so that the
+  # job cache can keep them. The venv is in /tmp, on another file system, so
+  # files are copied and not hard-linked.
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  UV_PYTHON_INSTALL_DIR: "$CI_PROJECT_DIR/.cache/uv-python"
+  UV_PYTHON_PREFERENCE: "only-managed"
+  UV_LINK_MODE: "copy"
 
 default:
-  image: $PY_FULL
+  image: $BASE_IMAGE
   # Repeat a job only when the infrastructure failed, never when its script
   # failed. The release job is safe to repeat (see there).
   retry:
@@ -114,16 +132,43 @@ default:
       when: never
     - when: on_success
 
-# pip's download cache. The untrusted runner keeps nothing between jobs unless
-# an operator turned on a runner cache; then this makes the install fast.
-.pip_cache:
+# uv's wheel cache and the managed Pythons. The untrusted runner keeps nothing
+# between jobs unless an operator turned on a runner cache; then this makes the
+# install fast. One cache per job, renewed when requirements_test.txt changes.
+.uv_cache:
   cache:
     key:
-      prefix: pip-$CI_JOB_NAME
+      prefix: uv-$CI_JOB_NAME
       files:
         - requirements_test.txt
     paths:
-      - .cache/pip
+      - .cache/uv
+      - .cache/uv-python
+
+# Installs the pinned uv (sha256 checked) into /tmp/uv-bin and makes a Python
+# $PYTHON_VERSION venv in /tmp/venv, then puts both on PATH. /tmp, not the
+# checkout, so that nothing here lands in the files ruff or the zip see. Runs as
+# root on the untrusted runner and as an unprivileged user on the release
+# builder; it needs neither apt nor root.
+.uv_setup: &uv_setup
+  - |
+    set -eu
+    case "$(uname -m)" in
+      x86_64) arch=x86_64; sum="$UV_SHA256_AMD64" ;;
+      aarch64) arch=aarch64; sum="$UV_SHA256_ARM64" ;;
+      *) echo "no pinned uv for $(uname -m)"; exit 1 ;;
+    esac
+    curl -fsSL --retry 4 --retry-all-errors -o /tmp/uv.tar.gz \
+      "https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-$arch-unknown-linux-gnu.tar.gz"
+    echo "$sum  /tmp/uv.tar.gz" | sha256sum -c -
+    mkdir -p /tmp/uv-bin
+    tar -xzf /tmp/uv.tar.gz -C /tmp/uv-bin --strip-components=1
+    export PATH="/tmp/uv-bin:$PATH"
+    uv --version
+    uv venv --clear --python "$PYTHON_VERSION" /tmp/venv
+    export VIRTUAL_ENV=/tmp/venv
+    export PATH="/tmp/venv/bin:$PATH"
+    python --version
 
 # The one definition of a release tag, in scripts/check_tag.py and
 # scripts/release_tools.py: vX.Y.Z is a final release, vX.Y.Z-beta.N a
@@ -135,42 +180,104 @@ default:
 # section for the version. The release job runs the same script again.
 tag-check:
   stage: .pre
-  extends: .untrusted
+  extends:
+    - .untrusted
+    - .uv_cache
   variables:
     GIT_DEPTH: "0"
   rules:
     - if: '$CI_COMMIT_TAG'
+  before_script:
+    - *uv_setup
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - python3 scripts/check_tag.py
+    - python scripts/check_tag.py
 
-# ruff, pinned in requirements_test.txt.
+# ruff, pinned in requirements_test.txt. The cache directory is in .gitignore
+# and also excluded here, so ruff never reads the managed Pythons in it.
 lint:
   stage: check
-  extends: .untrusted
-  image: $PY_SLIM
+  extends:
+    - .untrusted
+    - .uv_cache
+  before_script:
+    - *uv_setup
   script:
-    - pip install "$(grep -E '^ruff==' requirements_test.txt)"
+    - uv pip install "$(grep -E '^ruff==' requirements_test.txt)"
     - ruff --version
-    - ruff check .
-    - ruff format --check .
+    - ruff check --extend-exclude .cache .
+    - ruff format --check --extend-exclude .cache .
 
-# HA's own validation of custom_components/sediment, in the image the hassfest
-# GitHub Action uses. That image's entrypoint script looks for
-# custom_components/*/manifest.json in the working directory and runs
-# `python -m script.hassfest --action validate --integration-path <dir>`. The
-# entrypoint is cleared so the runner can start the job script, which then
-# calls the image's own script. It checks the manifest, translations, services,
-# config flow and dependencies. It does not look at brand/ or hacs.json; that
-# is scripts/check_hacs.py.
+# Home Assistant's validation of custom_components/sediment, the same program
+# the hassfest GitHub Action runs (the image ghcr.io/home-assistant/hassfest),
+# rebuilt here because that image is not on the runner allowlist. The steps are
+# those of the image's Dockerfile and entrypoint.sh at the Home Assistant tag
+# that requirements_test.txt pins (scripts/ha_version.py finds it):
+#   - a shallow, sparse checkout of home-assistant/core at that tag, with only
+#     homeassistant/, script/ and the requirements files;
+#   - pipdeptree, tqdm and ruff at the versions core pins, then core's
+#     requirements.txt with core's package constraints;
+#   - the integrations are found the way entrypoint.sh finds them
+#     (custom_components/*/manifest.json and ./manifest.json), and
+#     `python -m script.hassfest --action validate --integration-path <dir>`
+#     runs inside the core checkout, with the integration outside it.
+# It checks the manifest, translations, services, config flow and dependencies.
+# It does not look at brand/ or hacs.json; that is scripts/check_hacs.py. The
+# checkout is kept in the cache and used again while the tag stays the same.
 hassfest:
   stage: check
   extends: .untrusted
-  image:
-    name: $HASSFEST_IMAGE
-    entrypoint: [""]
+  cache:
+    key:
+      prefix: hassfest
+      files:
+        - requirements_test.txt
+    paths:
+      - .cache/uv
+      - .cache/uv-python
+      - .cache/ha-core
+  before_script:
+    - *uv_setup
   script:
-    - /usr/src/homeassistant/script/hassfest/docker/entrypoint.sh
+    - |
+      set -eu
+      ha=$(python scripts/ha_version.py)
+      core="$CI_PROJECT_DIR/.cache/ha-core"
+      echo "--- Home Assistant core $ha"
+      if [ "$(cat "$core/.checked-out-tag" 2>/dev/null || true)" = "$ha" ]; then
+        echo "using the cached checkout"
+      else
+        rm -rf "$core"
+        git clone -q --depth 1 --filter=blob:none --sparse --branch "$ha" \
+          https://github.com/home-assistant/core.git "$core"
+        git -C "$core" sparse-checkout set --no-cone /homeassistant /script \
+          /requirements.txt /requirements_all.txt /requirements_test.txt /requirements_test_pre_commit.txt
+        echo "$ha" > "$core/.checked-out-tag"
+      fi
+      echo "--- install what hassfest needs"
+      cd "$core"
+      uv pip install \
+        "pipdeptree==$(awk -F'==' '/^pipdeptree==/{print $2}' requirements_test.txt)" \
+        "tqdm==$(awk -F'==' '/^tqdm==/{print $2}' requirements_test.txt)" \
+        "ruff==$(awk -F'==' '/^ruff==/{print $2}' requirements_test_pre_commit.txt)"
+      uv pip install -c homeassistant/package_constraints.txt -r requirements.txt
+      echo "--- find the integrations"
+      cd "$CI_PROJECT_DIR"
+      integrations=""
+      manifests=$(
+        { [ -d custom_components ] && find custom_components -mindepth 2 -maxdepth 2 -name manifest.json
+          find . -maxdepth 1 -name manifest.json; } 2>/dev/null
+      )
+      for manifest in $manifests; do
+        integrations="$integrations --integration-path $(dirname "$(realpath "$manifest")")"
+      done
+      if [ -z "$integrations" ]; then
+        echo "Error: No integrations found!"
+        exit 1
+      fi
+      echo "--- hassfest"
+      cd "$core"
+      python -m script.hassfest --action validate $integrations
 
 # The file rules of the HACS repository validation. The real check (the
 # hacs/action container) reads the repository through the GitHub API and
@@ -178,8 +285,11 @@ hassfest:
 # brand/icon.png is a warning, and an error for a final release tag.
 hacs-check:
   stage: check
-  extends: .untrusted
-  image: $PY_SLIM
+  extends:
+    - .untrusted
+    - .uv_cache
+  before_script:
+    - *uv_setup
   script:
     - |
       set -eu
@@ -187,17 +297,19 @@ hacs-check:
       if printf '%s\n' "${CI_COMMIT_TAG:-}" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
         args="--require-brand"
       fi
-      python3 scripts/check_hacs.py $args
+      python scripts/check_hacs.py $args
 
 # pytest on the Home Assistant version pinned in requirements_test.txt.
 test-ha-current:
   stage: test
   extends:
     - .untrusted
-    - .pip_cache
+    - .uv_cache
+  before_script:
+    - *uv_setup
   script:
-    - pip install -r requirements_test.txt
-    - pip list 2>/dev/null | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
+    - uv pip install -r requirements_test.txt
+    - uv pip list | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
     - pytest --junitxml=report.xml
   artifacts:
     when: always
@@ -214,12 +326,14 @@ test-ha-previous:
   stage: test
   extends:
     - .untrusted
-    - .pip_cache
+    - .uv_cache
   allow_failure: true
+  before_script:
+    - *uv_setup
   script:
     - grep -v '^pytest-homeassistant-custom-component' requirements_test.txt > /tmp/requirements_previous.txt
-    - pip install -r /tmp/requirements_previous.txt "pytest-homeassistant-custom-component==$HA_PREVIOUS_PLUGIN"
-    - pip list 2>/dev/null | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
+    - uv pip install -r /tmp/requirements_previous.txt "pytest-homeassistant-custom-component==$HA_PREVIOUS_PLUGIN"
+    - uv pip list | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
     - pytest --junitxml=report.xml
   artifacts:
     when: always
@@ -286,11 +400,14 @@ release:
     - mkdir -p "$CI_PROJECT_DIR/.home"
     - export HOME="$CI_PROJECT_DIR/.home"
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    # No job cache here: a release only uses what it downloads itself. The
+    # scripts need nothing but the standard library, so the venv stays empty.
+    - *uv_setup
   script:
-    - python3 scripts/check_tag.py --notes-out release_notes.md
-    - python3 scripts/build_zip.py --out dist/sediment.zip
-    - python3 scripts/gitlab_release.py --notes-file release_notes.md
-    - python3 scripts/github_release.py --notes-file release_notes.md
+    - python scripts/check_tag.py --notes-out release_notes.md
+    - python scripts/build_zip.py --out dist/sediment.zip
+    - python scripts/gitlab_release.py --notes-file release_notes.md
+    - python scripts/github_release.py --notes-file release_notes.md
   artifacts:
     paths:
       - dist/sediment.zip
