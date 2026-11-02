@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
 from .const import (
@@ -22,6 +23,8 @@ from .manager import SedimentManager, async_release_for_removal
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor"]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 type SedimentConfigEntry = ConfigEntry[SedimentManager]
 

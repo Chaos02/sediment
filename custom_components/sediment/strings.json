@@ -241,7 +241,7 @@
     },
     "export_profile_map": {
       "name": "Export profile map",
-      "description": "Write <config>/sediment/profile_map.json: entity, resolved profile, the profile signature and its hash. tools/merge_history.py --profile-map uses it so the import knows the profiles that only Home Assistant can see (integration, registry)."
+      "description": "Write config/sediment/profile_map.json: entity, resolved profile, the profile signature and its hash. tools/merge_history.py --profile-map uses it so the import knows the profiles that only Home Assistant can see (integration, registry)."
     },
     "import_history": {
       "name": "Import history",
@@ -249,7 +249,7 @@
       "fields": {
         "path": {
           "name": "File",
-          "description": "Path of the import database. Put it in <config>/sediment/."
+          "description": "Path of the import database. Put it in config/sediment/."
         },
         "dry_run": {
           "name": "Dry run",

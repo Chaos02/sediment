@@ -241,7 +241,7 @@
     },
     "export_profile_map": {
       "name": "Profilzuordnung exportieren",
-      "description": "Schreibt <config>/sediment/profile_map.json: Entität, aufgelöstes Profil, Profil-Signatur und deren Hash. tools/merge_history.py --profile-map nutzt sie, damit der Import die Profile kennt, die nur Home Assistant sieht (Integration, Registry)."
+      "description": "Schreibt config/sediment/profile_map.json: Entität, aufgelöstes Profil, Profil-Signatur und deren Hash. tools/merge_history.py --profile-map nutzt sie, damit der Import die Profile kennt, die nur Home Assistant sieht (Integration, Registry)."
     },
     "import_history": {
       "name": "Verlauf importieren",
@@ -249,7 +249,7 @@
       "fields": {
         "path": {
           "name": "Datei",
-          "description": "Pfad der Importdatenbank. Lege sie in <config>/sediment/ ab."
+          "description": "Pfad der Importdatenbank. Lege sie in config/sediment/ ab."
         },
         "dry_run": {
           "name": "Testlauf",
