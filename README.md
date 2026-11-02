@@ -3,7 +3,7 @@
 # Sediment
 
 [![Pipeline](https://gitlab.com/Chaos02-oss/sediment/badges/main/pipeline.svg)](https://gitlab.com/Chaos02-oss/sediment/-/pipelines)
-[![Release](https://gitlab.com/Chaos02-oss/sediment/-/badges/release.svg)](https://gitlab.com/Chaos02-oss/sediment/-/releases)
+[![Release](https://img.shields.io/gitlab/v/release/Chaos02-oss%2Fsediment?include_prereleases&sort=semver&label=release)](https://gitlab.com/Chaos02-oss/sediment/-/releases)
 [![Issues on GitLab](https://img.shields.io/badge/issues-on%20GitLab-FC6D26?logo=gitlab)](https://gitlab.com/Chaos02-oss/sediment/-/issues)
 [![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5)](https://www.hacs.xyz/docs/faq/custom_repositories/)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
