@@ -159,7 +159,7 @@ Settings, CI/CD, Variables, Add variable:
 
 - Key: `GITHUB_RELEASE_TOKEN`
 - Value: the token from step 2
-- Environments: `release` (the environment scope; only the release job uses it, so
+- Environments: `PROD` (the environment scope; only the release job uses it, so
   the lint, test and validation jobs never see the token)
 - Flags: Protect variable on, Mask variable on, Expand variable reference off
 

@@ -27,7 +27,7 @@
 # the BUILD runner is registered as ref_protected.
 #
 # The secret: GITHUB_RELEASE_TOKEN is a protected, masked variable with the
-# environment scope "release". Only the release job declares that environment,
+# environment scope "PROD". Only the release job declares that environment,
 # so the checks, which run installed packages, never see the token, not even
 # in a tag pipeline.
 #
@@ -382,7 +382,7 @@ release:
   timeout: 45m
   # The environment scope of GITHUB_RELEASE_TOKEN. No other job has one.
   environment:
-    name: release
+    name: PROD
     action: prepare
   variables:
     GIT_DEPTH: "0"
