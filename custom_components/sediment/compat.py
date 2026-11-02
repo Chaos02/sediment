@@ -134,9 +134,8 @@ def check_compat(
 
     try:
         helpers = importlib.import_module("homeassistant.helpers.recorder")
-        sig = inspect.signature(helpers.session_scope).parameters
-        var_kw = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.values())
-        if not var_kw and not {"session", "read_only"} <= set(sig):
+        names, var_kw = arg_names(helpers.session_scope)
+        if not var_kw and not {"session", "read_only"} <= names:
             problems.append("session_scope lost its session/read_only arguments")
         repack = importlib.import_module("homeassistant.components.recorder.repack")
         if not callable(getattr(repack, "repack_database", None)):
@@ -144,6 +143,17 @@ def check_compat(
     except Exception as err:
         problems.append(f"cannot inspect the recorder helpers ({err})")
     return problems
+
+
+def arg_names(fn: Any) -> tuple[set[str], bool]:
+    """Return a function's argument names and whether it takes **kwargs.
+
+    Reads the code object instead of inspect.signature(), which evaluates
+    annotations: HA imports Session in helpers.recorder only for type checking.
+    """
+    code = inspect.unwrap(fn).__code__
+    names = set(code.co_varnames[: code.co_argcount + code.co_kwonlyargcount])
+    return names, bool(code.co_flags & inspect.CO_VARKEYWORDS)
 
 
 def snapshot_values(instance: Any) -> dict[str, Any]:

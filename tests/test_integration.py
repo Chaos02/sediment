@@ -19,6 +19,7 @@ from homeassistant.components.recorder.db_schema import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.recorder import get_instance, session_scope
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from sqlalchemy import select
 
@@ -206,6 +207,35 @@ async def test_guard_missing_attribute(
         assert any("legacy" in p for p in check_compat(instance))
     finally:
         instance.use_legacy_events_index = False
+
+
+def test_arg_names_ignores_unresolvable_annotations() -> None:
+    """HA annotates session_scope with a name imported only for type checking.
+
+    On the live runtime inspect.signature() raised NameError there, the guard
+    reported a problem and the job never ran. The test plugin wraps
+    session_scope, so only a direct check of the helper shows it.
+    """
+    import contextlib
+    import inspect
+
+    from custom_components.sediment.compat import arg_names
+
+    ns: dict = {"contextlib": contextlib}
+    src = (
+        "@contextlib.contextmanager\n"
+        "def session_scope(*, hass=None, session: NotImportedSession = None,"
+        " exception_filter=None, read_only: bool = False):\n"
+        "    yield session\n"
+    )
+    # dont_inherit: keep this module's "from __future__ import annotations" out,
+    # so the annotation stays unevaluated the way HA's module has it.
+    exec(compile(src, "<ha_helpers_recorder>", "exec", dont_inherit=True), ns)
+    with pytest.raises(NameError):
+        inspect.signature(ns["session_scope"])
+    names, var_kw = arg_names(ns["session_scope"])
+    assert {"session", "read_only"} <= names
+    assert not var_kw
 
 
 async def test_job_refused_when_guard_fails(
