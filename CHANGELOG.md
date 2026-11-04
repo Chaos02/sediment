@@ -30,3 +30,7 @@ Notable changes land here. The format follows
 - The importer remembers the bound for entities without live rows per file (an interrupted import converges on re-run), seals every written column with the content hash, rejects impossible rows and unusable chain links, skips rows the nightly job would delete anyway, and accepts files from `<config>/sediment/` (never from `<config>/www`).
 - Repair issue `retention_inferred` when old states make Sediment hold the recorder's purge back without a stored takeover.
 - English and German translations.
+
+### Fixed
+
+- `sensor.sediment_projected_size` showed 12 to 15 GB instead of about 12 after each restart until the next nightly job. The projection was computed while Home Assistant was still starting and entities had no state yet, so many of them were classified wrong. Now the nightly job computes it and Sediment keeps it across restarts. A reload after an options change computes it again. The dry-run report and the sensor show the same value.

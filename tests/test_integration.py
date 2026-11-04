@@ -16,14 +16,14 @@ from homeassistant.components.recorder.db_schema import (
     StatisticsMeta,
     StatisticsShortTerm,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.recorder import get_instance, session_scope
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from sqlalchemy import select
 
-from custom_components.sediment.const import DOMAIN
+from custom_components.sediment.const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
 from custom_components.sediment.recorder_bridge import run_on_recorder
 
 from .common import (
@@ -560,6 +560,45 @@ async def test_sensors_exist(
     proj = hass.states.get("sensor.sediment_projected_size")
     assert proj is not None
     assert proj.attributes["unit_of_measurement"] == "GB"
+
+
+async def test_projection_comes_from_the_store_during_startup(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations, hass_storage
+) -> None:
+    # entities have no state while Home Assistant starts, so a projection computed then is wrong
+    hass_storage[STORAGE_KEY] = {
+        "version": STORAGE_VERSION,
+        "key": STORAGE_KEY,
+        "data": {"projected_gb": 7.5, "projected_options": {"old": True}},
+    }
+    hass.set_state(CoreState.not_running)
+    entry = await setup_entry(hass)
+    assert entry.runtime_data.data["projected_options"] == {"old": True}
+    assert hass.states.get("sensor.sediment_projected_size").state == "7.5"
+
+
+async def test_projection_recomputed_on_reload_with_new_options(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations, hass_storage
+) -> None:
+    hass_storage[STORAGE_KEY] = {
+        "version": STORAGE_VERSION,
+        "key": STORAGE_KEY,
+        "data": {"projected_gb": 7.5, "projected_options": {"old": True}},
+    }
+    entry = await setup_entry(hass)  # hass is running here, as after an options change
+    assert entry.runtime_data.data["projected_options"] == dict(entry.options)
+    assert entry.runtime_data.data["projected_gb"] != 7.5
+
+
+async def test_job_report_and_sensor_share_the_projection(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations
+) -> None:
+    await seed_world(hass, get_instance(hass))
+    entry = await setup_entry(hass)
+    report = await entry.runtime_data.async_run(True)
+    sensor = hass.states.get("sensor.sediment_projected_size").state
+    assert report["projected_gb"] == entry.runtime_data.data["projected_gb"]
+    assert float(sensor) == report["projected_gb"]
 
 
 # ---------------------------------------------------------------- pointers across days

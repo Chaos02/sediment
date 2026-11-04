@@ -15,7 +15,7 @@ import time
 from typing import Any
 
 from homeassistant.components import persistent_notification
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, CoreState, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
@@ -322,7 +322,6 @@ class SedimentManager:
         self.running = False
         self.job: Any = None
         self.last_report: dict[str, Any] | None = None
-        self.estimate: solver.Estimate | None = None
         self.db_size: float | None = None
         self._unsubs: list[CALLBACK_TYPE] = []
         self._listeners: list[Callable[[], None]] = []
@@ -631,21 +630,33 @@ class SedimentManager:
         instance = get_instance(self.hass)
         await instance.async_db_ready
         await self.async_refresh()
+        # The projection comes from the nightly job and is kept in the store. While Home
+        # Assistant is still starting, entities have no state yet and would be classified
+        # wrongly, so only a reload with changed options computes it here.
+        if self.hass.state is CoreState.running and self.data.get("projected_options") != dict(
+            self.entry.options
+        ):
+            await self.async_update_projection()
+            await self.store.async_save(deepcopy(self.data))
 
     async def _refresh_tick(self, _now: datetime) -> None:
-        await self.async_refresh(rowstats=False)
+        await self.async_refresh()
 
-    async def async_refresh(self, rowstats: bool = True) -> None:
-        """Update the DB size and, optionally, the projection."""
+    async def async_refresh(self) -> None:
+        """Update the DB size."""
         instance = get_instance(self.hass)
         self.db_size = await self.hass.async_add_executor_job(db_size_bytes, instance)
-        if rowstats:
-            try:
-                self.estimate = await async_estimate(
-                    self.hass, self.settings, self.data.get("measured")
-                )
-            except Exception:
-                _LOGGER.exception("Sediment could not compute the size projection")
+        self._notify()
+
+    async def async_update_projection(self) -> None:
+        """Compute the projection into self.data. The caller saves the store."""
+        try:
+            est = await async_estimate(self.hass, self.settings, self.data.get("measured"))
+        except Exception:
+            _LOGGER.exception("Sediment could not compute the size projection")
+            return
+        self.data["projected_gb"] = round(est.total_gb, 2)
+        self.data["projected_options"] = dict(self.entry.options)
         self._notify()
 
     async def async_export_profile_map(self) -> dict[str, Any]:
@@ -805,11 +816,13 @@ class SedimentManager:
             self.job = None
             self._run_task = None
             self._idle.set()
-        report = self._make_report(job, dry, time.monotonic() - started, waited)
         if dry and job.stats.share_counts:
             measured = solver.measured_shares_from_counts(job.stats.share_counts)
             if measured:
                 self.data["measured"] = measured
+        if not self._closing:
+            await self.async_update_projection()
+        report = self._make_report(job, dry, time.monotonic() - started, waited)
         self._note_result(job.stats.errors)
         if not dry and active and not job.cancelled:
             self.data["real_horizon_days"] = float(s.history_days)
@@ -895,8 +908,8 @@ class SedimentManager:
                 k: round(v / days, 1) for k, v in st.raw_rows_by_class_profile.items()
             },
         }
-        if self.estimate is not None:
-            report["projected_gb"] = round(self.estimate.total_gb, 2)
+        if self.data.get("projected_gb") is not None:
+            report["projected_gb"] = self.data["projected_gb"]
         return report
 
     @staticmethod
@@ -945,4 +958,4 @@ class SedimentManager:
 
     @property
     def projected_gb(self) -> float | None:
-        return None if self.estimate is None else round(self.estimate.total_gb, 2)
+        return self.data.get("projected_gb")

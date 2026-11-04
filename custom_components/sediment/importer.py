@@ -596,6 +596,8 @@ async def async_import_history(manager: Any, path: str, dry_run: bool = True) ->
     full["per_entity"] = dict(sorted(st.per_entity.items()))
     await hass.async_add_executor_job(_write_report, hass, full)
     if not dry_run and not manager._closing:
+        await manager.async_update_projection()
+        await manager.store.async_save(deepcopy(manager.data))
         await manager.async_refresh()
     return report
 
