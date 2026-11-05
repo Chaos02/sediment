@@ -5,8 +5,13 @@ GitHub is a write-only shadow of the GitLab project. The GitLab push mirror
 carries the tag; this script waits until it arrived, then creates the release
 through the API (a pre-release for -beta.N tags) and attaches the zip.
 
-It is safe to run again: an existing release is updated, an asset that is
-already there with the same content is kept, a different one is replaced.
+The release starts as a draft, gets the zip, and is published last. That order
+is required once the repository turns on immutable releases: a published
+release can no longer change its tag or its files.
+
+It is safe to run again: a draft left by an earlier run is finished, an asset
+that is already there with the same content is kept, a different one is
+replaced. A published release that is immutable is only checked, never changed.
 
 The token is read from GITHUB_RELEASE_TOKEN (fine-grained PAT, Contents read
 and write, this one repository). It is never printed. With --dry-run the
@@ -152,19 +157,64 @@ def upload_url(release: dict, name: str) -> str:
     return release["upload_url"].split("{", 1)[0] + "?name=" + urllib.parse.quote(name)
 
 
-def ensure_release(client: Client, repo: str, payload: dict) -> dict:
-    tag = payload["tag_name"]
+def find_release(client: Client, repo: str, tag: str) -> dict | None:
+    """The release for a tag, published or draft. The tag endpoint hides drafts."""
     try:
-        existing = client.call("GET", f"/repos/{repo}/releases/tags/{tag}")
+        return client.call("GET", f"/repos/{repo}/releases/tags/{tag}")
     except ApiError as err:
         if err.status != 404:
             raise
-        existing = None
+    page = 1
+    while True:
+        releases = client.call("GET", f"/repos/{repo}/releases?per_page=100&page={page}")
+        for release in releases:
+            if release["tag_name"] == tag:
+                return release
+        if len(releases) < 100:
+            return None
+        page += 1
+
+
+def ensure_release(client: Client, repo: str, payload: dict) -> dict:
+    """A draft for the tag, or the published release that already exists."""
+    tag = payload["tag_name"]
+    existing = find_release(client, repo, tag)
+    draft = {**payload, "draft": True}
     if existing is None:
-        print(f"--- create the release {tag} (pre-release: {payload['prerelease']})")
-        return client.call("POST", f"/repos/{repo}/releases", payload)
-    print(f"--- the release {tag} exists (id {existing['id']}), updating it")
-    return client.call("PATCH", f"/repos/{repo}/releases/{existing['id']}", payload)
+        print(f"--- create the draft {tag} (pre-release: {payload['prerelease']})")
+        return client.call("POST", f"/repos/{repo}/releases", draft)
+    if existing.get("draft"):
+        print(f"--- the draft {tag} exists (id {existing['id']}), updating it")
+        return client.call("PATCH", f"/repos/{repo}/releases/{existing['id']}", draft)
+    return existing
+
+
+def publish(client: Client, repo: str, release: dict, payload: dict) -> dict:
+    print("--- publish the release")
+    return client.call("PATCH", f"/repos/{repo}/releases/{release['id']}", payload)
+
+
+def asset_matches(asset: dict, data: bytes, digest: str) -> bool:
+    remote = asset.get("digest")  # "sha256:<hex>" on current GitHub, may be absent
+    return (
+        asset.get("size") == len(data)
+        and (remote is None or remote == f"sha256:{digest}")
+        and asset.get("state", "uploaded") == "uploaded"
+    )
+
+
+def check_asset(release: dict, path: Path) -> None:
+    """A published, immutable release cannot change: it has the zip or it is wrong."""
+    data = path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    for asset in release.get("assets") or []:
+        if asset["name"] == path.name and asset_matches(asset, data, digest):
+            return
+    raise rt.Refusal(
+        f"the release {release['tag_name']} is published and immutable, and it has no "
+        f"{path.name} with sha256 {digest}. It cannot be changed any more, so release the "
+        "next version."
+    )
 
 
 def ensure_asset(client: Client, repo: str, release: dict, path: Path) -> None:
@@ -174,10 +224,7 @@ def ensure_asset(client: Client, repo: str, release: dict, path: Path) -> None:
     for asset in release.get("assets") or []:
         if asset["name"] != path.name:
             continue
-        same_size = asset.get("size") == len(data)
-        remote = asset.get("digest")  # "sha256:<hex>" on current GitHub, may be absent
-        same_digest = remote is None or remote == f"sha256:{digest}"
-        if same_size and same_digest and asset.get("state", "uploaded") == "uploaded":
+        if asset_matches(asset, data, digest):
             print("already attached with the same content, keeping it")
             return
         print("attached with other content or unfinished, replacing it")
@@ -196,14 +243,17 @@ def print_dry_run(args: argparse.Namespace, payload: dict, zip_path: Path) -> No
     print("           (an annotated tag adds GET .../git/tags/<sha>)")
     print(f"           the tag must point at {args.sha or '$CI_COMMIT_SHA'}")
     print(f"  GET    {base}/repos/{repo}/releases/tags/{tag}")
-    print(f"           404: POST {base}/repos/{repo}/releases")
-    print(f"           else: PATCH {base}/repos/{repo}/releases/<id>")
+    print(f"           404: GET {base}/repos/{repo}/releases?per_page=100 (drafts are only there)")
+    print(f"           nothing: POST {base}/repos/{repo}/releases as a draft")
+    print(f"           a draft: PATCH {base}/repos/{repo}/releases/<id>, still a draft")
+    print("           published and immutable: only check the zip, change nothing")
     print(f"           payload {json.dumps(shown)}")
     print(
         f"  POST   <upload_url of the release>?name={zip_path.name}  ({size} bytes, application/zip)"
     )
     print("           an asset of that name is kept when size and sha256 match,")
     print(f"           else DELETE {base}/repos/{repo}/releases/assets/<id> first")
+    print(f"  PATCH  {base}/repos/{repo}/releases/<id>  publishes the draft, last")
     print("--- release notes:")
     print(payload["body"])
 
@@ -263,7 +313,16 @@ def main() -> int:
         client = Client(args.api_url, token)
         wait_for_tag(client, args.repo, args.tag, args.sha, args.timeout, args.interval)
         release = ensure_release(client, args.repo, payload)
-        ensure_asset(client, args.repo, release, args.zip_path)
+        if release.get("draft"):
+            ensure_asset(client, args.repo, release, args.zip_path)
+            release = publish(client, args.repo, release, payload)
+        elif release.get("immutable"):
+            print(f"--- the release {args.tag} is published and immutable, checking it only")
+            check_asset(release, args.zip_path)
+        else:
+            print(f"--- the release {args.tag} is published, updating it")
+            release = client.call("PATCH", f"/repos/{args.repo}/releases/{release['id']}", payload)
+            ensure_asset(client, args.repo, release, args.zip_path)
         print(f"released {args.tag}: {release.get('html_url', '')}")
     except rt.Refusal as err:
         print(f"REFUSING: {err}")

@@ -10,7 +10,11 @@ exist before the first tag.
 - `github.com/Chaos02/sediment` is a copy and nothing else. The Home Assistant
   Marketplace (HACS) can only install from GitHub, and it takes versions from
   GitHub Releases. The copy has issues turned off, no `.github/` directory and no
-  Actions.
+  Actions. Pull requests are on. The maintainer copies a good one to GitLab by
+  hand and closes it on GitHub.
+- GitHub Releases are immutable (repository setting): once published, the tag and
+  the zip cannot change. The release job therefore creates a draft, attaches the
+  zip and publishes last.
 - A GitLab push mirror copies branches and tags to GitHub.
 - The tag pipeline creates the release on both sites. It creates the GitHub
   Release through the API, after the mirror has delivered the tag.
@@ -113,9 +117,11 @@ Setting `PUBLISH_HOLD` as a project variable holds every release until you remov
 ## Running the release job again
 
 You can run the job again. It skips a package file with the same content. It
-leaves an existing GitLab release alone, updates an existing GitHub Release and
-keeps an identical asset. If a package file exists with different content, the job
-stops. A published version never changes, so release the next version.
+leaves an existing GitLab release alone and finishes a GitHub draft that an earlier
+run left behind. A published, immutable GitHub Release is only checked: the job
+fails if its zip is missing or different. If a package file exists with different
+content, the job stops. A published version never changes, so release the next
+version.
 
 If the job times out waiting for the tag on GitHub, look at the push mirror in
 GitLab (Settings, Repository, Mirroring repositories). Press the update button

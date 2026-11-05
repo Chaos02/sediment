@@ -11,8 +11,8 @@
 > [!IMPORTANT]
 > **This project lives on GitLab: [gitlab.com/Chaos02-oss/sediment](https://gitlab.com/Chaos02-oss/sediment).**
 > Issues, merge requests, CI and releases are all there.
-> The GitHub repository is a read-only mirror. It exists only because the Home Assistant Marketplace (HACS) installs from GitHub.
-> Pull requests on GitHub are not reviewed. Please open a merge request on GitLab instead.
+> The GitHub repository is a copy. It exists only because the Home Assistant Marketplace (HACS) installs from GitHub.
+> You can open a pull request there. It is copied to GitLab by hand, so it can take a while. Issues belong on GitLab.
 
 Home Assistant keeps raw state history for 10 days and then deletes it. Sediment thins the old rows of the recorder's `states` table in place instead. It keeps spikes, steps, every state change and the edges of `unavailable` gaps. Flapping bursts shrink to their first and last change from tier 2 on, unless you turn that off. It removes the long stretches where nothing changed. History, logbook and energy keep working, because the data stays in the normal tables.
 
