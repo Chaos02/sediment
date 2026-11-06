@@ -7,8 +7,12 @@ Sediment adds only history that is older than what the live database holds. Noth
 ## What you need
 
 - Copies of the recorder database. Each is a normal Home Assistant recorder SQLite file of schema 53. Each copy holds only the days it recorded (10 by default).
-- Python 3.10 or newer on any machine. The tool needs no Home Assistant and no extra packages. It reads the integration's `codec.py` and `profiles.py` from this repository. Run it from a checkout (or a release folder) of Sediment.
-- On the Home Assistant side: the takeover ticked and dry run off (see [recorder.md](recorder.md)). Without that, the recorder's own purge deletes rows older than its keep days at the next nightly run. So the service refuses.
+- Python 3.14 or newer on any machine. The integration's code uses its syntax, so older versions fail with a `SyntaxError`. The tool needs no Home Assistant and no extra packages. It reads the integration's `codec.py` and `profiles.py` from this repository. Run it from a checkout (or a release folder) of Sediment. Home Assistant's container image has Python 3.14, so on a machine with Docker you can run the tool like this (set the memory limit to what you can spare):
+
+  ```
+  docker run --rm --memory 1400m -v "$PWD":/w -w /w --entrypoint python3 ghcr.io/home-assistant/home-assistant:stable tools/merge_history.py import.db copy-a.db copy-b.db --now 2026-11-01
+  ```
+- On the Home Assistant side: the recorder's own purge must be off. Without that, it deletes rows older than its keep days at the next nightly run, so the service refuses. There are two ways. Tick the takeover and switch dry run off (see [recorder.md](recorder.md)). Or set `auto_purge: false` under `recorder:` in `configuration.yaml` and restart. The second way keeps Sediment's own thinning in dry run, but nothing purges the database until you switch thinning on.
 
 If a copy has a `-wal` file next to it, checkpoint it first, or copy it from a stopped recorder. The tool opens every copy read-only with `immutable=1`. That mode ignores the `-wal` file, and the tool prints a warning.
 
@@ -93,7 +97,7 @@ The service refuses, and writes nothing, if:
 - the file was made from a recorder schema other than 53, is not an import file, or is damaged (the content hash does not match);
 - the database is not SQLite;
 - the recorder check fails (see [recorder.md](recorder.md));
-- the recorder's own purge is on and would delete the imported rows at its next run: turn the takeover on first;
+- the recorder's own purge is on and would delete the imported rows at its next run: turn the takeover on first, or set `auto_purge: false` in the recorder's YAML;
 - the path is not in `<config>/sediment/` or an allowed folder, or is under `<config>/www`;
 - a Sediment job or another import is running.
 

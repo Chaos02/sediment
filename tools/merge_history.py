@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Merge recorder database snapshots into one thinned import database.
 
-Offline tool for `sediment.import_history`. It needs Python 3.10 or newer and nothing
-else: no Home Assistant, no third party packages. It uses the integration's own codec and
+Offline tool for `sediment.import_history`. It needs Python 3.14 or newer (the
+integration's code uses its syntax) and nothing else: no Home Assistant, no third party packages. It uses the integration's own codec and
 profile code, so the import arrives thinned exactly as the integration would have thinned
 it, to the tier each day's age calls for.
 
@@ -50,7 +50,7 @@ FORMAT_VERSION = 1
 SUPPORTED_SCHEMA = 53
 DAY = 86400.0
 PERIOD_TOLERANCE = 3600.0  # snapshots this close (or overlapping) form one period
-MIN_PYTHON = (3, 10)
+MIN_PYTHON = (3, 14)
 
 
 def load_core() -> tuple[Any, Any]:
@@ -68,7 +68,7 @@ def parse_now(text: str) -> float:
     """`YYYY-MM-DD` (midnight UTC) or an ISO date time (UTC unless it has an offset)."""
     dt = datetime.fromisoformat(text)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)  # noqa: UP017 (this tool runs on 3.10)
+        dt = dt.replace(tzinfo=timezone.utc)  # noqa: UP017
     return dt.timestamp()
 
 
@@ -451,7 +451,10 @@ CREATE TABLE days (day INTEGER NOT NULL, profile TEXT NOT NULL, width REAL NOT N
 def merge(out_path: str, source_paths: list[str], args: argparse.Namespace, log=print) -> dict:
     """Do the whole job. Returns the manifest."""
     if sys.version_info < MIN_PYTHON:
-        raise SystemExit("Python 3.10 or newer is needed")
+        raise SystemExit(
+            "Python 3.14 or newer is needed. Home Assistant's container image has it, see "
+            "docs/importing.md"
+        )
     codec, profiles = load_core()
     now = parse_now(args.now)
     sources = [Source(p) for p in source_paths]

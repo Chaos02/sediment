@@ -319,6 +319,24 @@ async def test_refused_when_the_recorder_would_purge_the_rows(
     assert any("takeover" in p for p in report["problems"])
 
 
+async def test_import_runs_with_the_recorder_purge_off_and_sediment_in_dry_run(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations, tmp_path
+) -> None:
+    path = build_import(tmp_path)
+    instance, entry, _live = await world(hass, tmp_path, takeover=False, dry_run=True)
+    instance.auto_purge = False  # what `recorder: auto_purge: false` in the YAML does
+    manager = entry.runtime_data
+    report = await manager.async_import_history(str(path), dry_run=False)
+    assert report["errors"] == [] and report["rows_inserted"] > 0
+    assert not manager.takeover.active  # Sediment's own thinning stays in dry run
+    assert (await integrity(instance)) == {
+        "fk": 0,
+        "bad_chain": 0,
+        "orphan_attrs": 0,
+        "dangling_attrs": 0,
+    }
+
+
 async def test_refused_when_the_database_is_not_sqlite(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations, tmp_path
 ) -> None:

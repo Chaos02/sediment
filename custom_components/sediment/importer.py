@@ -483,8 +483,8 @@ async def async_import_history(manager: Any, path: str, dry_run: bool = True) ->
             problems.append(
                 f"the recorder's own purge is on and keeps {instance.keep_days} days, so it would "
                 f"delete the imported rows (the oldest is {age_days:.0f} days old) at its next "
-                "nightly run. Turn the takeover on first: tick it in the options and switch dry "
-                "run off"
+                "nightly run. Turn the takeover on first (tick it in the options and switch dry "
+                "run off), or set auto_purge: false under recorder: in configuration.yaml"
             )
     content = header["content_hash"]
     data = manager.data
