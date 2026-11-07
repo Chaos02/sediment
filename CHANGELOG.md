@@ -33,6 +33,7 @@ Notable changes land here. The format follows
 
 ### Changed
 
+- The history length page and the resolution page show the projected database size right above the selectors: for 1, 2, 5 and 10 years at the current resolution, and for Fine, Standard and Coarse at the chosen length. Before, the projection appeared only on the last page.
 - The Home Assistant icon has no background tile any more, because integration icons usually sit on Home Assistant's own background. There is a variant for dark themes (`dark_icon.png`).
 
 ### Fixed

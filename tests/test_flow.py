@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -9,6 +11,7 @@ from homeassistant.helpers.recorder import get_instance
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sediment.const import DOMAIN
+from custom_components.sediment.manager import Settings, async_estimate_variants
 
 from .common import midnight_days_ago, seed
 
@@ -178,3 +181,49 @@ async def test_run_now_service(
     await hass.async_block_till_done()
     await hass.services.async_call(DOMAIN, "run_now", {"dry_run": True}, blocking=True)
     assert entry.runtime_data.last_report["mode"] == "dry_run"
+
+
+async def _busy_sensor(hass) -> None:
+    instance = get_instance(hass)
+    pts = [(midnight_days_ago(1) + 10 * i, f"{20 + (i % 9) * 0.1:.1f}", None) for i in range(8000)]
+    await seed(instance, "sensor.busy", pts)
+    hass.states.async_set("sensor.busy", "20.0", {"state_class": "measurement"})
+
+
+async def test_history_and_resolution_pages_show_projected_sizes(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations
+) -> None:
+    await _busy_sensor(hass)
+    r = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert r["step_id"] == "history"
+    ph = r["description_placeholders"]
+    assert ph["resolution"] == "Standard"
+    assert all(float(ph[f"gb_{key}"]) >= 0 for key in ("1", "2", "5", "10"))
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"history_choice": "2"})
+    assert r["step_id"] == "resolution"
+    ph = r["description_placeholders"]
+    assert ph["years"] == "2.0"
+    assert all(float(ph[f"gb_{key}"]) >= 0 for key in ("fine", "standard", "coarse"))
+
+
+async def test_projections_follow_history_length_and_resolution(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations
+) -> None:
+    await _busy_sensor(hass)
+    base = Settings()
+    longer = await async_estimate_variants(
+        hass,
+        base,
+        None,
+        {str(y): replace(base, history_days=365 * y) for y in (1, 2, 5, 10)},
+    )
+    assert longer["1"] < longer["2"] < longer["5"] < longer["10"]
+    finer = await async_estimate_variants(
+        hass,
+        base,
+        None,
+        {r: replace(base, resolution=r) for r in ("fine", "standard", "coarse")},
+    )
+    assert finer["fine"] > finer["standard"] > finer["coarse"]

@@ -3,7 +3,7 @@
     "step": {
       "history": {
         "title": "History length",
-        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.",
+        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.\n\nProjected database size at the current resolution ({resolution}): 1 year {gb_1} GB, 2 years {gb_2} GB, 5 years {gb_5} GB, 10 years {gb_10} GB.",
         "data": {
           "history_choice": "History length",
           "custom_days": "Custom length (days, used when you pick Custom)"
@@ -11,7 +11,7 @@
       },
       "resolution": {
         "title": "Sediment resolution",
-        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.",
+        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.\n\nProjected database size for {years} years: Fine {gb_fine} GB, Standard {gb_standard} GB, Coarse {gb_coarse} GB. A custom tier layout is estimated on the last page.",
         "data": {
           "resolution": "Resolution",
           "size_cap_gb": "Size cap (GB, optional)"
@@ -88,7 +88,7 @@
     "step": {
       "history": {
         "title": "History length",
-        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.",
+        "description": "How long Sediment keeps history. It deletes data older than this. It thins newer data in place and never removes it early.\n\nProjected database size at the current resolution ({resolution}): 1 year {gb_1} GB, 2 years {gb_2} GB, 5 years {gb_5} GB, 10 years {gb_10} GB.",
         "data": {
           "history_choice": "History length",
           "custom_days": "Custom length (days, used when you pick Custom)"
@@ -96,7 +96,7 @@
       },
       "resolution": {
         "title": "Sediment resolution",
-        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.",
+        "description": "How finely Sediment keeps old history. **Fine**: 15 minutes up to 1 year, 1 hour up to 3 years, then 6 hours. **Standard**: 15 minutes up to 6 months, 1 hour up to 2 years, then 6 hours. **Coarse**: 1 hour, 6 hours, then 1 day. Every resolution keeps spikes, steps, every state change and gaps where a sensor was unavailable.\n\nProjected database size for {years} years: Fine {gb_fine} GB, Standard {gb_standard} GB, Coarse {gb_coarse} GB. A custom tier layout is estimated on the last page.",
         "data": {
           "resolution": "Resolution",
           "size_cap_gb": "Size cap (GB, optional)"

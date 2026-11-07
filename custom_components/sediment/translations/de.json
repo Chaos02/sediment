@@ -3,7 +3,7 @@
     "step": {
       "history": {
         "title": "Länge des Verlaufs",
-        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.",
+        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.\n\nPrognostizierte Datenbankgröße bei der aktuellen Auflösung ({resolution}): 1 Jahr {gb_1} GB, 2 Jahre {gb_2} GB, 5 Jahre {gb_5} GB, 10 Jahre {gb_10} GB.",
         "data": {
           "history_choice": "Länge des Verlaufs",
           "custom_days": "Eigene Länge (Tage, gilt bei Auswahl von Benutzerdefiniert)"
@@ -11,7 +11,7 @@
       },
       "resolution": {
         "title": "Sediment-Auflösung",
-        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.",
+        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.\n\nPrognostizierte Datenbankgröße für {years} Jahre: Fein {gb_fine} GB, Standard {gb_standard} GB, Grob {gb_coarse} GB. Eine eigene Stufenaufteilung wird auf der letzten Seite geschätzt.",
         "data": {
           "resolution": "Auflösung",
           "size_cap_gb": "Größenlimit (GB, optional)"
@@ -88,7 +88,7 @@
     "step": {
       "history": {
         "title": "Länge des Verlaufs",
-        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.",
+        "description": "Wie lange Sediment den Verlauf behält. Sediment löscht ältere Daten. Neuere Daten dünnt es an Ort und Stelle aus und entfernt sie nie früher.\n\nPrognostizierte Datenbankgröße bei der aktuellen Auflösung ({resolution}): 1 Jahr {gb_1} GB, 2 Jahre {gb_2} GB, 5 Jahre {gb_5} GB, 10 Jahre {gb_10} GB.",
         "data": {
           "history_choice": "Länge des Verlaufs",
           "custom_days": "Eigene Länge (Tage, gilt bei Auswahl von Benutzerdefiniert)"
@@ -96,7 +96,7 @@
       },
       "resolution": {
         "title": "Sediment-Auflösung",
-        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.",
+        "description": "Wie fein Sediment alten Verlauf behält. **Fein**: 15 Minuten bis 1 Jahr, 1 Stunde bis 3 Jahre, danach 6 Stunden. **Standard**: 15 Minuten bis 6 Monate, 1 Stunde bis 2 Jahre, danach 6 Stunden. **Grob**: 1 Stunde, 6 Stunden, danach 1 Tag. Jede Auflösung behält Spitzen, Sprünge, jeden Zustandswechsel und Lücken, in denen ein Sensor nicht verfügbar war.\n\nPrognostizierte Datenbankgröße für {years} Jahre: Fein {gb_fine} GB, Standard {gb_standard} GB, Grob {gb_coarse} GB. Eine eigene Stufenaufteilung wird auf der letzten Seite geschätzt.",
         "data": {
           "resolution": "Auflösung",
           "size_cap_gb": "Größenlimit (GB, optional)"

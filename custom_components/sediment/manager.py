@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable
 from contextlib import suppress
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta
 import json
 import logging
@@ -188,12 +188,12 @@ async def async_get_rowstats(hass: HomeAssistant, raw_days: float, force: bool =
     return data
 
 
-async def async_estimate(
+async def async_estimate_inputs(
     hass: HomeAssistant,
     settings: Settings,
     measured: dict[str, dict[str, float]] | None = None,
-) -> solver.Estimate:
-    """Projected database size for these settings, from the recorder's real numbers."""
+) -> solver.Inputs:
+    """What the projection starts from: the recorder's real numbers and these settings."""
     from .recorder_bridge import aggregate_by_class_profile
 
     rs = await async_get_rowstats(hass, settings.raw_days)
@@ -211,7 +211,7 @@ async def async_estimate(
 
     rows_per_day = aggregate_by_class_profile(rs, classify, profile_of)
     instance = get_instance(hass)
-    inputs = solver.Inputs(
+    return solver.Inputs(
         rows_per_day=rows_per_day,
         schedules=settings.schedules(),
         raw_days=settings.raw_days,
@@ -221,7 +221,31 @@ async def async_estimate(
         stats_rows_per_day=float(rs["stats_rows_per_day"]),
         measured_shares=measured,
     )
-    return solver.estimate(inputs)
+
+
+async def async_estimate(
+    hass: HomeAssistant,
+    settings: Settings,
+    measured: dict[str, dict[str, float]] | None = None,
+) -> solver.Estimate:
+    """Projected database size for these settings, from the recorder's real numbers."""
+    return solver.estimate(await async_estimate_inputs(hass, settings, measured))
+
+
+async def async_estimate_variants(
+    hass: HomeAssistant,
+    settings: Settings,
+    measured: dict[str, dict[str, float]] | None,
+    variants: dict[str, Settings],
+) -> dict[str, float]:
+    """Projected size in GB for several settings at once. The row counts are read once."""
+    base = await async_estimate_inputs(hass, settings, measured)
+    return {
+        key: solver.estimate(
+            replace(base, schedules=variant.schedules(), horizon_days=variant.history_days)
+        ).total_gb
+        for key, variant in variants.items()
+    }
 
 
 # ---------------------------------------------------------------- the manager

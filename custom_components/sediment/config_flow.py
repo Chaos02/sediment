@@ -7,6 +7,8 @@ The same steps serve the options flow.
 
 from __future__ import annotations
 
+from dataclasses import replace
+import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -48,7 +50,7 @@ from .const import (
     HISTORY_CHOICES,
     RESOLUTIONS,
 )
-from .manager import Settings, async_estimate, async_retention_owned
+from .manager import Settings, async_estimate, async_estimate_variants, async_retention_owned
 from .profiles import coarsen_oldest, parse_rules, resolution_ladder
 
 CONF_CUSTOM_DAYS = "custom_days"
@@ -69,6 +71,9 @@ def _number(
     )
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 def _choice_for_days(days: int) -> str:
     for key, value in YEARS_TO_DAYS.items():
         if value == days:
@@ -85,6 +90,19 @@ class SedimentFlowSteps:
     # implemented by the two flows
     async def _async_finish(self) -> ConfigFlowResult:  # pragma: no cover
         raise NotImplementedError
+
+    async def _projections(self, variants: dict[str, Settings]) -> dict[str, str]:
+        """Projected size in GB, as text, for each variant. A page must open without it."""
+        manager = self._manager()
+        measured = manager.data.get("measured") if manager else None
+        try:
+            sizes = await async_estimate_variants(
+                self.hass, Settings.from_options(self._opts), measured, variants
+            )
+        except Exception:
+            _LOGGER.exception("Sediment could not project the sizes for this page")
+            return dict.fromkeys(variants, "?")
+        return {key: f"{gb:.1f}" for key, gb in sizes.items()}
 
     # ------------------------------------------------------------ history length
     async def async_step_history(
@@ -115,7 +133,15 @@ class SedimentFlowSteps:
         schema = self.add_suggested_values_to_schema(
             schema, {CONF_HISTORY_CHOICE: _choice_for_days(days), CONF_CUSTOM_DAYS: days}
         )
-        return self.async_show_form(step_id="history", data_schema=schema)
+        base = Settings.from_options(self._opts)
+        sizes = await self._projections(
+            {key: replace(base, history_days=YEARS_TO_DAYS[key]) for key in ("1", "2", "5", "10")}
+        )
+        placeholders = {"resolution": base.resolution.capitalize()}
+        placeholders.update({f"gb_{key}": gb for key, gb in sizes.items()})
+        return self.async_show_form(
+            step_id="history", data_schema=schema, description_placeholders=placeholders
+        )
 
     # ------------------------------------------------------------ resolution
     async def async_step_resolution(
@@ -148,7 +174,18 @@ class SedimentFlowSteps:
                 CONF_SIZE_CAP_GB: self._opts.get(CONF_SIZE_CAP_GB),
             },
         )
-        return self.async_show_form(step_id="resolution", data_schema=schema)
+        base = Settings.from_options(self._opts)
+        sizes = await self._projections(
+            {
+                res: replace(base, resolution=res, custom_tiers=None)
+                for res in ("fine", "standard", "coarse")
+            }
+        )
+        placeholders = {"years": f"{base.history_days / 365.0:.1f}"}
+        placeholders.update({f"gb_{res}": gb for res, gb in sizes.items()})
+        return self.async_show_form(
+            step_id="resolution", data_schema=schema, description_placeholders=placeholders
+        )
 
     async def async_step_tiers(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Custom tier lengths and bucket sizes: three tiers, the last one open ended."""
