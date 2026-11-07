@@ -31,6 +31,10 @@ Notable changes land here. The format follows
 - Repair issue `retention_inferred` when old states make Sediment hold the recorder's purge back without a stored takeover.
 - English and German translations.
 
+### Changed
+
+- The Home Assistant icon has no background tile any more, because integration icons usually sit on Home Assistant's own background. There is a variant for dark themes (`dark_icon.png`).
+
 ### Fixed
 
 - The import tool `tools/merge_history.py` said it runs on Python 3.10, but the integration's code it loads needs Python 3.14. The tool now says so, and the documentation shows how to run it in Home Assistant's container image. The documentation also names the second way to let the import run: `auto_purge: false` in the recorder's YAML, with Sediment's thinning still in dry run.
