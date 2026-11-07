@@ -13,7 +13,9 @@ against the working tree:
                      version present and well formed (HACS: integration_manifest)
   brand/             icon.png (and icon@2x.png) present (HACS: brands). A warning
                      until the icons land; an error with --require-brand.
-  README             a README or info file exists (HACS: information)
+  README             a README or info file exists (HACS: information), and its images
+                     and links are absolute: HACS shows the README inside Home Assistant,
+                     which does not resolve relative paths
   LICENSE            present (warning only; the default list wants one)
 
 The checks that need GitHub itself (issues enabled, repository description,
@@ -192,10 +194,29 @@ def check_brand(brand: Path, rep: Report, require: bool) -> None:
         rep.ok("brand/icon.png")
 
 
+RELATIVE_TARGET = re.compile(
+    r"""(?:\]\(|src=["']|href=["'])(?!https?://|#|mailto:|data:)([^)"'\s]+)""", re.IGNORECASE
+)
+
+
+def relative_readme_targets(text: str) -> list[str]:
+    """Markdown links, markdown images and HTML src/href that are not absolute."""
+    return RELATIVE_TARGET.findall(text)
+
+
 def check_readme_license(root: Path, rep: Report) -> None:
     names = {f.name.lower() for f in root.iterdir() if f.is_file()}
     if names & README_NAMES:
         rep.ok("README")
+        for name in sorted(n for n in README_NAMES if n in names):
+            actual = next(f for f in root.iterdir() if f.is_file() and f.name.lower() == name)
+            text = actual.read_text(encoding="utf-8", errors="replace")
+            for target in relative_readme_targets(text):
+                rep.error(
+                    f"{actual.name} has the relative target '{target}'. HACS shows the README "
+                    "inside Home Assistant, where relative images and links break. Use an "
+                    "absolute URL."
+                )
     else:
         rep.error("no README.md or info.md in the repository root")
     if any(n == "license" or n.startswith("license.") for n in names):

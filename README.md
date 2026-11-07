@@ -1,4 +1,4 @@
-<img src="assets/icons/sediment.svg" width="96" alt="Sediment icon">
+<img src="https://raw.githubusercontent.com/Chaos02/sediment/main/assets/icons/sediment-512.png" width="96" alt="Sediment icon">
 
 # Sediment
 
@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/gitlab/v/release/Chaos02-oss%2Fsediment?include_prereleases&sort=semver&label=release)](https://gitlab.com/Chaos02-oss/sediment/-/releases)
 [![Issues on GitLab](https://img.shields.io/badge/issues-on%20GitLab-FC6D26?logo=gitlab)](https://gitlab.com/Chaos02-oss/sediment/-/issues)
 [![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5)](https://www.hacs.xyz/docs/faq/custom_repositories/)
-[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
+[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](https://gitlab.com/Chaos02-oss/sediment/-/blob/main/LICENSE)
 
 > [!IMPORTANT]
 > **This project lives on GitLab: [gitlab.com/Chaos02-oss/sediment](https://gitlab.com/Chaos02-oss/sediment).**
@@ -50,7 +50,7 @@ Add this repository to HACS as a custom repository, with pre-releases enabled. O
 
 ## Use
 
-The job runs nightly at 04:30. The service `sediment.run_now` runs it once. Details are in [docs/](docs/).
+The job runs nightly at 04:30. The service `sediment.run_now` runs it once. Details are in [docs/](https://gitlab.com/Chaos02-oss/sediment/-/tree/main/docs).
 
 ## License
 

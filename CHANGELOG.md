@@ -38,5 +38,6 @@ Notable changes land here. The format follows
 
 ### Fixed
 
+- The README showed a broken icon and a broken license badge on the HACS page. HACS shows the README inside Home Assistant, where relative image and link paths do not resolve. The icon, the license link and the docs link are absolute now, and the HACS check in CI fails on a relative target.
 - The import tool `tools/merge_history.py` said it runs on Python 3.10, but the integration's code it loads needs Python 3.14. The tool now says so, and the documentation shows how to run it in Home Assistant's container image. The documentation also names the second way to let the import run: `auto_purge: false` in the recorder's YAML, with Sediment's thinning still in dry run.
 - `sensor.sediment_projected_size` showed 12 to 15 GB instead of about 12 after each restart until the next nightly job. The projection was computed while Home Assistant was still starting and entities had no state yet, so many of them were classified wrong. Now the nightly job computes it and Sediment keeps it across restarts. A reload after an options change computes it again. The dry-run report and the sensor show the same value.
