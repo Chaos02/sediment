@@ -8,6 +8,8 @@
 [![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5)](https://www.hacs.xyz/docs/faq/custom_repositories/)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](https://gitlab.com/Chaos02-oss/sediment/-/blob/main/LICENSE)
 
+**TL;DR:** Home Assistant deletes the detailed history of your sensors after 10 days. Sediment keeps a smaller version of it for years. Your graphs, the logbook and the energy dashboard keep working. A new install changes nothing until you switch it on.
+
 > [!IMPORTANT]
 > **This project lives on GitLab: [gitlab.com/Chaos02-oss/sediment](https://gitlab.com/Chaos02-oss/sediment).**
 > Issues, merge requests, CI and releases are all there.
