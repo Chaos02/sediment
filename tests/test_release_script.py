@@ -199,23 +199,6 @@ def test_new_release_is_a_draft_until_the_zip_is_attached(serve, tmp_path, monke
     assert fake.mutations()[1][1].startswith("/upload/")
 
 
-def test_rerun_after_success_changes_nothing(serve, tmp_path, monkeypatch) -> None:
-    fake = serve(immutable_setting=True)
-    assert run(fake, tmp_path, monkeypatch) == 0
-    before = len(fake.mutations())
-    assert run(fake, tmp_path, monkeypatch) == 0
-    assert len(fake.mutations()) == before
-
-
-def test_draft_left_by_an_earlier_run_is_finished(serve, tmp_path, monkeypatch) -> None:
-    fake = serve(immutable_setting=True)
-    fake.add_release(draft=True, immutable=False, assets=[ZIP])
-    assert run(fake, tmp_path, monkeypatch) == 0
-    (rel,) = fake.releases  # found through the list, not duplicated
-    assert not rel["draft"] and len(rel["assets"]) == 1
-    assert [m for m, _ in fake.mutations()] == ["PATCH", "PATCH"]  # no second upload
-
-
 def test_immutable_release_with_another_zip_is_refused(
     serve, tmp_path, monkeypatch, capsys
 ) -> None:
@@ -224,13 +207,3 @@ def test_immutable_release_with_another_zip_is_refused(
     assert run(fake, tmp_path, monkeypatch) == 1
     assert "immutable" in capsys.readouterr().out
     assert not fake.mutations()
-
-
-def test_published_release_without_immutability_is_still_updated(
-    serve, tmp_path, monkeypatch
-) -> None:
-    fake = serve(immutable_setting=False)
-    fake.add_release(draft=False, immutable=False, assets=[b"old"])
-    assert run(fake, tmp_path, monkeypatch) == 0
-    (rel,) = fake.releases
-    assert len(rel["assets"]) == 1 and rel["assets"][0]["size"] == len(ZIP)

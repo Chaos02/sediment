@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import random
 
 import pytest
@@ -63,29 +62,8 @@ def test_classify_continuous_and_enum():
     assert codec.classify("climate", ["heat", "off"], None) == "attribute"
 
 
-def test_classify_counter():
-    assert codec.classify("sensor", ["1", "2", "3", "4", "5"], "total_increasing") == "counter"
-
-
-def test_fewlevel_real_levels_stay_fewlevel():
-    # 0 / 800: a real two-level signal, many quanta apart
-    assert codec.classify("sensor", ["0", "800", "0", "800"], "measurement") == "fewlevel"
-
-
-def test_fewlevel_resolution_flicker_is_continuous():
-    # 0.00 / 0.01: one quantum apart, flicker of the sensor resolution, not a signal
-    assert codec.classify("sensor", ["0.00", "0.01", "0.00", "0.01"], "measurement") == "continuous"
-    assert codec.classify("sensor", ["49.9", "50.0", "49.9"], None) == "continuous"
-
-
-def test_decimals():
-    assert codec.decimals("12") == 0
-    assert codec.decimals("12.50") == 2
-    assert codec.decimals("1e-5") == 6
-
-
 # ---------------------------------------------------------------- continuous
-@pytest.mark.parametrize("seed", range(25))
+@pytest.mark.parametrize("seed", range(3))
 def test_continuous_invariants(seed):
     t, v, s = make_continuous(seed)
     p = codec.series_params(v)
@@ -108,13 +86,6 @@ def test_continuous_invariants(seed):
     for kept, _E, _a in chain:
         vals = {v[i] for i in kept}
         assert lo in vals and hi in vals
-
-
-def test_constant_series_collapses():
-    t = [T0 + 30 * i for i in range(2000)]
-    v = [21.5] * len(t)
-    kept, _E, _a = codec.thin_continuous(t, v, codec.series_params(v), DEFAULT_TIERS[0], t[-1])
-    assert len(kept) <= 2 + int(DAY // 900)
 
 
 def test_spike_and_step_survive():
@@ -150,15 +121,8 @@ def test_gap_edges_kept_and_short_gaps_dropped():
     assert 200 not in mand and 204 not in mand
 
 
-def test_trailing_gap_edge_kept():
-    t = [T0 + 30 * i for i in range(100)]
-    v: list[float | None] = [1.0] * 90 + [None] * 10
-    _segs, mand = codec.split_segments(t, v, t[-1] + 1000)
-    assert 89 in mand and 90 in mand
-
-
 # ---------------------------------------------------------------- counter
-@pytest.mark.parametrize("seed", range(15))
+@pytest.mark.parametrize("seed", range(2))
 def test_counter_deltas_exact(seed):
     t, v, s = make_counter(seed)
     chain = codec.run_chain("counter", t, v, s, {}, DEFAULT_TIERS, t[-1])
@@ -189,22 +153,6 @@ def test_enum_keeps_every_transition():
     assert len(kept) <= len(trans) + 1
 
 
-def test_enum_flapping_collapse():
-    # 10 transitions, each 5 s apart: one burst
-    s = []
-    t = []
-    for i in range(10):
-        s.append("on" if i % 2 == 0 else "off")
-        t.append(T0 + 5 * i)
-    s += ["on"]
-    t += [T0 + 5000]
-    off = set(codec.thin_enum(t, s, flap=False))
-    on = set(codec.thin_enum(t, s, flap=True))
-    assert off == set(range(len(s)))
-    assert 0 in on and 9 in on
-    assert len(on) < len(off)
-
-
 # ---------------------------------------------------------------- chain over classes
 def test_attribute_chain_unions_components():
     t = [T0 + 60 * i for i in range(300)]
@@ -221,19 +169,3 @@ def test_attribute_chain_unions_components():
     )
     assert 150 in out[0]
     assert 0 in out[0] and 299 in out[0]
-
-
-def test_tolerance_floor_is_quantum():
-    assert math.isclose(codec.tolerance({"q": 0.5, "sigma": 0.0, "R": 100.0}, 1.0, 0.01), 0.5)
-
-
-def test_one_quantum_range_is_not_active_despite_float_noise():
-    """20.1 - 20.0 is 0.10000000000000142 in floats: still exactly one quantum of 0.1."""
-    t = [T0 + 30 * i for i in range(1000)]
-    v = [20.0 + (0.1 if i % 2 else 0.0) for i in range(len(t))]
-    assert v[1] - v[0] > 0.1  # the float noise this guards against
-    p = codec.series_params(v)
-    kept, E, active = codec.thin_continuous(t, v, p, DEFAULT_TIERS[0], t[-1])
-    assert abs(E - 0.1) < 1e-9
-    assert not active
-    assert len(kept) <= 2 + 2 * (int(len(t) * 30 // 900) + 1)

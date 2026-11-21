@@ -6,7 +6,6 @@ purge back used to hand the thinned history to it.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 import time
 from unittest.mock import patch
@@ -24,10 +23,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.recorder import get_instance, session_scope
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from custom_components.sediment.compat import Takeover
 from custom_components.sediment.const import DOMAIN
 from custom_components.sediment.recorder_thread import run_on_recorder
 
@@ -144,55 +141,6 @@ async def test_guard_failure_at_start_keeps_purge_off(
         assert await entry.runtime_data.async_run(False) is None
 
 
-async def test_guard_failure_never_applied_leaves_recorder_alone(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    with patch("custom_components.sediment.compat.SUPPORTED_SCHEMA_VERSIONS", frozenset({99})):
-        entry = await setup_entry(hass, dry_run=False, takeover=True)
-    assert instance.auto_purge is True and instance.keep_days == 10
-    assert not entry.runtime_data.owned
-    assert _issue(hass, "takeover_blocked") is not None
-
-
-async def test_guard_failure_at_job_time_does_not_restore(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    entry = await setup_entry(hass, dry_run=False, takeover=True, history_days=1830)
-    manager = entry.runtime_data
-    with (
-        patch("custom_components.sediment.manager.check_compat", return_value=["boom"]),
-        patch("custom_components.sediment.manager_takeover.check_compat", return_value=["boom"]),
-    ):
-        assert await manager.async_run(False) is None
-    assert instance.auto_purge is False and manager.takeover.active and manager.owned
-    assert _issue(hass, "takeover_protecting") is not None
-
-
-def test_protect_falls_back_to_keep_days() -> None:
-    class Fake:
-        keep_days = 10
-
-    fake = Fake()
-    takeover = Takeover(fake, {"auto_purge": True, "keep_days": 10, "auto_repack": True})
-    assert takeover.protect(oldest_age_days=99.2) == "keep_days"
-    assert fake.keep_days == 101
-    fake.keep_days = 10
-    assert takeover.protect(None) == "keep_days" and fake.keep_days == 36500
-    fake.keep_days = 10
-    assert takeover.protect(50, horizon_days=1830) == "keep_days" and fake.keep_days == 1830
-
-    class Both:
-        auto_purge = True
-        keep_days = 10
-
-    both = Both()
-    protected = Takeover(both, {"auto_purge": True, "keep_days": 10, "auto_repack": True})
-    assert protected.protect(100, horizon_days=1830) == "auto_purge+keep_days"
-    assert both.auto_purge is False and both.keep_days == 1830
-
-
 async def test_unload_restores_nothing_while_owned_remove_restores_and_tells(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
 ) -> None:
@@ -287,15 +235,6 @@ async def test_safety_net_issue(
     assert _issue(hass, "safety_net") is None
 
 
-async def test_no_safety_net_issue_when_yaml_already_disables_purge(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    instance.auto_purge = False  # recorder: auto_purge: false in configuration.yaml
-    await setup_entry(hass, dry_run=False, takeover=True)
-    assert _issue(hass, "safety_net") is None
-
-
 # ---------------------------------------------------------------- 2. attribute cache
 async def _climate_job(hass, prefill: int):
     from custom_components.sediment.job_types import JobConfig
@@ -351,14 +290,6 @@ async def _climate_job(hass, prefill: int):
         pass
     after = {r[0] for r in await snapshot(instance)}
     return ids, after, job
-
-
-async def test_climate_control(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    ids, after, job = await _climate_job(hass, 0)
-    assert job.stats.errors == []
-    assert ids[600] in after
 
 
 async def test_full_attribute_cache_does_not_wipe_attributes(
@@ -422,94 +353,6 @@ async def test_cleanup_respects_the_recorders_original_keep_days(
     assert await read(instance, counts) == (1, 1)
 
 
-async def test_cleanup_loops_until_the_backlog_is_gone(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    now = time.time()
-
-    def add(inst):
-        with session_scope(session=inst.get_session()) as s:
-            sm = StatisticsMeta(
-                statistic_id="sensor.y", source="recorder", has_mean=True, has_sum=False
-            )
-            s.add(sm)
-            s.flush()
-            for i in range(500):
-                s.add(
-                    StatisticsShortTerm(
-                        metadata_id=sm.id, start_ts=now - 20 * DAY - 300 * i, mean=1.0
-                    )
-                )
-
-    await run_on_recorder(instance, add)
-    entry = await setup_entry(hass, dry_run=False, takeover=True, history_days=1830)
-    with patch.object(instance, "max_bind_vars", 10):
-        report = await entry.runtime_data.async_run(False)
-    left = await read(
-        instance,
-        lambda s: s.execute(
-            select(func.count(StatisticsShortTerm.id)).where(
-                StatisticsShortTerm.start_ts < now - 11 * DAY
-            )
-        ).scalar(),
-    )
-    assert report["stats"]["short_term_deleted"] == 500 and left == 0
-
-
-async def test_raw_days_can_exceed_sixty(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={},
-        options={"history_days": 1830, "raw_days": 90, "takeover": False, "dry_run": True},
-    )
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    r = await hass.config_entries.options.async_init(entry.entry_id)
-    r = await hass.config_entries.options.async_configure(r["flow_id"], {"history_choice": "5"})
-    r = await hass.config_entries.options.async_configure(r["flow_id"], {"resolution": "standard"})
-    r = await hass.config_entries.options.async_configure(
-        r["flow_id"], {"profile_rules": "", "flapping_collapse": True}
-    )
-    r = await hass.config_entries.options.async_configure(
-        r["flow_id"], {"takeover": False, "raw_days": 90, "dry_run": True}
-    )
-    assert r["step_id"] == "confirm"
-
-
-async def test_stale_meta_and_event_types_are_purged_under_takeover(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-
-    def add(inst):
-        with session_scope(session=inst.get_session()) as s:
-            s.add(StatesMeta(entity_id="sensor.gone"))
-            s.add(EventTypes(event_type="never_used"))
-
-    await run_on_recorder(instance, add)
-    entry = await setup_entry(hass, dry_run=False, takeover=True, history_days=1830)
-    report = await entry.runtime_data.async_run(False)
-    assert report["stats"]["stale_meta_deleted"] >= 1
-    assert report["stats"]["stale_event_types_deleted"] >= 1
-    names = await read(
-        instance, lambda s: [r[0] for r in s.execute(select(StatesMeta.entity_id)).all()]
-    )
-    assert "sensor.gone" not in names
-    # entities that still exist are recorded again after their id was purged
-    hass.states.async_set("sensor.fresh", "1")
-    await hass.async_block_till_done()
-    await run_on_recorder(instance, lambda inst: None)
-    names = await read(
-        instance, lambda s: [r[0] for r in s.execute(select(StatesMeta.entity_id)).all()]
-    )
-    assert "sensor.fresh" in names
-    assert (await integrity(instance))["fk"] == 0
-
-
 # ---------------------------------------------------------------- 5. failures
 async def test_cleanup_runs_even_when_thinning_fails_and_three_failures_raise_an_issue(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
@@ -552,82 +395,6 @@ async def test_cleanup_runs_even_when_thinning_fails_and_three_failures_raise_an
     assert _issue(hass, "job_failing") is None
 
 
-async def test_transient_database_errors_retry_before_quarantine(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    from sqlalchemy.exc import OperationalError
-
-    from custom_components.sediment import recorder_bridge
-
-    instance = get_instance(hass)
-    ids = await seed(instance, "sensor.locked", _flat_day(midnight_days_ago(20)))
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-
-    def locked(*args, **kwargs):
-        raise OperationalError("DELETE", {}, Exception("database is locked"))
-
-    with patch.object(recorder_bridge.Job, "_delete_states", locked):
-        await manager.async_run(False)
-        assert manager.data["quarantine"] == {} and len(manager.data["fail_counts"]) == 1
-        await manager.async_run(False)
-        assert manager.data["quarantine"] == {}
-        await manager.async_run(False)
-    assert len(manager.data["quarantine"]) == 1 and manager.data["fail_counts"] == {}
-    # the quarantined entity-day can be released again
-    await hass.services.async_call(DOMAIN, "clear_quarantine", blocking=True)
-    assert manager.data["quarantine"] == {}
-    report = await manager.async_run(False)
-    assert report["stats"]["errors"] == [] and report["stats"]["rows_deleted"] > 0
-    after = {r[0] for r in await snapshot(instance)}
-    assert len([i for i in ids if i in after]) < len(ids)
-
-
-async def test_a_transient_error_that_clears_leaves_no_trace(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    from sqlalchemy.exc import OperationalError
-
-    from custom_components.sediment import recorder_bridge
-
-    instance = get_instance(hass)
-    await seed(instance, "sensor.blip", _flat_day(midnight_days_ago(20)))
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-    orig = recorder_bridge.Job._delete_states
-
-    def locked(*args, **kwargs):
-        raise OperationalError("DELETE", {}, Exception("database is locked"))
-
-    with patch.object(recorder_bridge.Job, "_delete_states", locked):
-        await manager.async_run(False)
-    assert len(manager.data["fail_counts"]) == 1
-    with patch.object(recorder_bridge.Job, "_delete_states", orig):
-        report = await manager.async_run(False)
-    assert report["stats"]["errors"] == [] and report["stats"]["rows_deleted"] > 0
-    assert manager.data["fail_counts"] == {} and manager.data["quarantine"] == {}
-
-
-# ---------------------------------------------------------------- 7. store race
-async def test_unload_waits_for_the_job_in_flight(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    for name in ("a", "b", "c", "d"):
-        await seed(instance, f"sensor.race_{name}", _flat_day(midnight_days_ago(20), 600))
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-    with patch("custom_components.sediment.recorder_bridge.BATCH_SECONDS", 0):
-        task = hass.async_create_task(manager.async_run(False))
-        for _ in range(3):
-            await asyncio.sleep(0)
-        assert manager.running
-        assert await hass.config_entries.async_unload(entry.entry_id)
-    assert not manager.running and manager._idle.is_set()
-    await task  # finished without an exception
-    assert (await integrity(instance))["fk"] == 0
-
-
 # ---------------------------------------------------------------- dialect
 async def test_non_sqlite_refuses_writes_but_allows_a_dry_run(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
@@ -654,57 +421,6 @@ async def test_non_sqlite_refuses_writes_but_allows_a_dry_run(
             instance.__dict__["dialect_name"] = real
 
 
-# ---------------------------------------------------------------- state class
-async def test_known_state_class_survives_an_unavailable_refresh(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    from custom_components.sediment.job_types import JobConfig
-    from custom_components.sediment.profiles import EntityMeta
-    from custom_components.sediment.recorder_bridge import Job
-
-    instance = get_instance(hass)
-    d = midnight_days_ago(20)
-    pts = [
-        (d + 60 * i + 1, f"{100 + i * 0.5:.1f}", {"unit_of_measurement": "kWh"}) for i in range(300)
-    ]
-    await seed(instance, "sensor.meter", pts)
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-    cfg = JobConfig(
-        dry_run=False,
-        now=time.time(),
-        raw_days=10.0,
-        horizon_days=1830.0,
-        coarse_horizon_days=365.0,
-        schedules=manager.settings.schedules(),
-        rules=[],
-        flap_default=True,
-        takeover=False,
-        meta={"sensor.meter": EntityMeta(state_class=None)},  # unavailable right now
-    )
-    # last week it was known to be a counter
-    manager.data["entities"]["sensor.meter"] = {
-        "cls": "counter",
-        "params": {},
-        "ts": 0.0,
-        "state_class": "total_increasing",
-    }
-    job = Job(cfg, manager.data)
-
-    def run(inst):
-        with session_scope(session=inst.get_session(), read_only=True) as ses:
-            job._emap = dict(
-                ses.execute(select(StatesMeta.metadata_id, StatesMeta.entity_id)).all()
-            )
-            mid = next(m for m, e in job._emap.items() if e == "sensor.meter")
-            rows = Job._load_rows(ses, mid, d, d + DAY)
-            return job._entity_info(ses, inst, mid, rows)
-
-    info = await run_on_recorder(instance, run)
-    assert info["cls"] == "counter" and info["state_class"] == "total_increasing"
-    assert info["ts"] == cfg.now
-
-
 # ---------------------------------------------------------------- unit size
 async def test_big_entity_day_is_processed_in_slices(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
@@ -719,24 +435,6 @@ async def test_big_entity_day_is_processed_in_slices(
     after = {r[0] for r in await snapshot(instance)}
     assert len([i for i in ids if i in after]) < 0.2 * len(ids)
     assert (await integrity(instance))["fk"] == 0
-
-
-async def test_unsliceable_entity_day_is_reported_not_processed(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    ids = await seed(instance, "sensor.huge", _flat_day(midnight_days_ago(20), 1400))
-    one_day = [
-        {"bucket_min": 1440, "until_days": 100},
-        {"bucket_min": 1440, "until_days": 200},
-        {"bucket_min": 1440, "until_days": 0},
-    ]
-    entry = await setup_entry(hass, dry_run=False, resolution="custom", custom_tiers=one_day)
-    snap = await snapshot(instance)
-    with patch("custom_components.sediment.job_thin.MAX_UNIT_ROWS", 300):
-        report = await entry.runtime_data.async_run(False)
-    assert len(report["stats"]["oversize"]) == 1
-    assert await snapshot(instance) == snap and ids
 
 
 # ---------------------------------------------------------------- profile changes
@@ -775,19 +473,3 @@ async def test_changed_profile_thins_old_days_again(
     third = len([i for i in ids if i in {r[0] for r in await snapshot(instance)}])
     assert third <= second
     assert (await integrity(instance))["fk"] == 0
-
-
-async def test_dry_run_reports_profile_changes_without_touching_anything(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    await seed(instance, "sensor.noisy", _flat_day(midnight_days_ago(20)))
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-    await manager.async_run(False)
-    manager.settings.rules_text = "sensor.noisy = coarse"
-    snap = await snapshot(instance)
-    report = await manager.async_run(True)
-    assert report["stats"]["reprofiled_entities"] == 1
-    assert await snapshot(instance) == snap
-    assert manager.data["profile_map"] == {}

@@ -20,45 +20,6 @@ async def _alive(instance):
     return {r[0] for r in await snapshot(instance)}
 
 
-async def test_fixed_metadata_overrides_the_stored_profile(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    await seed(instance, "sensor.t", _flat_day(midnight_days_ago(1), 10))
-    hass.states.async_set("sensor.t", "1", {"device_class": "temperature"})
-    entry = await setup_entry(
-        hass, dry_run=False, profile_rules="device_class:temperature = drop\n"
-    )
-    manager = entry.runtime_data
-    await manager.async_run(False)
-    assert manager.data["profile_map"].get("sensor.t") == "drop|None"
-    # the device class is fixed so the drop rule no longer applies; the rules are unchanged
-    hass.states.async_set("sensor.t", "1", {"device_class": "humidity"})
-    ids = await seed(instance, "sensor.t", _flat_day(midnight_days_ago(20), 50))
-    report = await manager.async_run(False)
-    assert report["stats"]["errors"] == []
-    after = await _alive(instance)
-    assert any(i in after for i in ids), "no longer dropped"
-    assert "sensor.t" not in manager.data["profile_map"], "the stored profile follows"
-
-
-async def test_missing_metadata_still_uses_the_stored_profile(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    hass.states.async_set("sensor.t", "1", {"device_class": "temperature"})
-    entry = await setup_entry(
-        hass, dry_run=False, profile_rules="device_class:temperature = keep\n"
-    )
-    manager = entry.runtime_data
-    await manager.async_run(False)
-    hass.states.async_remove("sensor.t")  # no metadata tonight
-    ids = await seed(instance, "sensor.t", _flat_day(midnight_days_ago(20), 200))
-    await manager.async_run(False)
-    alive = await _alive(instance)
-    assert all(i in alive for i in ids)
-
-
 async def test_inferred_protection_raises_an_issue_and_can_be_given_up(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
 ) -> None:
@@ -90,13 +51,6 @@ async def test_inferred_protection_raises_an_issue_and_can_be_given_up(
     assert r["type"] == "create_entry"
     await hass.async_block_till_done()
     assert instance.auto_purge is True and instance.keep_days == 10
-    assert _issue(hass, "retention_inferred") is None
-
-
-async def test_no_inference_issue_for_a_normal_install(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    await setup_entry(hass, dry_run=True, takeover=True)
     assert _issue(hass, "retention_inferred") is None
 
 

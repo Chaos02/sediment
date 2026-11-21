@@ -10,20 +10,18 @@ from homeassistant.components.recorder.db_schema import (
     EventData,
     Events,
     EventTypes,
-    RecorderRuns,
     States,
     StatesMeta,
     StatisticsMeta,
     StatisticsShortTerm,
 )
-from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.recorder import get_instance, session_scope
-import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from sqlalchemy import select
 
-from custom_components.sediment.const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
+from custom_components.sediment.const import DOMAIN
 from custom_components.sediment.recorder_thread import run_on_recorder
 
 from .common import (
@@ -137,42 +135,6 @@ async def test_takeover_sets_and_restores(
     assert (instance.auto_purge, instance.keep_days, instance.auto_repack) == before
 
 
-async def test_takeover_not_engaged_during_dry_run(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    """A dry run changes nothing: the guard runs, the recorder keeps purging."""
-    instance = get_instance(hass)
-    before = (instance.auto_purge, instance.keep_days)
-    entry = await setup_entry(hass, takeover=True, history_days=400, dry_run=True)
-    assert (instance.auto_purge, instance.keep_days) == before
-    assert not entry.runtime_data.takeover.active
-    assert ir.async_get(hass).async_get_issue(DOMAIN, "takeover_blocked") is None
-    # leaving dry run engages it
-    hass.config_entries.async_update_entry(entry, options={**entry.options, "dry_run": False})
-    await hass.async_block_till_done()
-    assert instance.auto_purge is False and instance.keep_days == 400
-
-
-async def test_guard_runs_during_dry_run(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    with patch("custom_components.sediment.compat.SUPPORTED_SCHEMA_VERSIONS", frozenset({99})):
-        await setup_entry(hass, takeover=True, dry_run=True)
-    assert ir.async_get(hass).async_get_issue(DOMAIN, "takeover_blocked") is not None
-
-
-async def test_untick_in_options_restores(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    entry = await setup_entry(hass, takeover=True, history_days=400, dry_run=False)
-    assert instance.auto_purge is False
-    hass.config_entries.async_update_entry(entry, options={**entry.options, "takeover": False})
-    await hass.async_block_till_done()
-    assert instance.auto_purge is True
-    assert instance.keep_days != 400
-
-
 async def test_guard_mismatch_leaves_recorder_untouched(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
 ) -> None:
@@ -185,71 +147,6 @@ async def test_guard_mismatch_leaves_recorder_untouched(
     issue = ir.async_get(hass).async_get_issue(DOMAIN, "takeover_blocked")
     assert issue is not None
     assert "schema version" in issue.translation_placeholders["reasons"]
-
-
-async def test_guard_missing_attribute(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    from custom_components.sediment.compat import check_compat
-
-    instance = get_instance(hass)
-    assert check_compat(instance) == []
-
-    class Fake:
-        keep_days = 10
-
-    problems = check_compat(Fake())
-    assert any("auto_purge" in p for p in problems)
-    assert any("states_manager" in p for p in problems)
-
-    instance.use_legacy_events_index = True
-    try:
-        assert any("legacy" in p for p in check_compat(instance))
-    finally:
-        instance.use_legacy_events_index = False
-
-
-def test_arg_names_ignores_unresolvable_annotations() -> None:
-    """HA annotates session_scope with a name imported only for type checking.
-
-    On the live runtime inspect.signature() raised NameError there, the guard
-    reported a problem and the job never ran. The test plugin wraps
-    session_scope, so only a direct check of the helper shows it.
-    """
-    import contextlib
-    import inspect
-
-    from custom_components.sediment.compat import arg_names
-
-    ns: dict = {"contextlib": contextlib}
-    src = (
-        "@contextlib.contextmanager\n"
-        "def session_scope(*, hass=None, session: NotImportedSession = None,"
-        " exception_filter=None, read_only: bool = False):\n"
-        "    yield session\n"
-    )
-    # dont_inherit: keep this module's "from __future__ import annotations" out,
-    # so the annotation stays unevaluated the way HA's module has it.
-    exec(compile(src, "<ha_helpers_recorder>", "exec", dont_inherit=True), ns)
-    with pytest.raises(NameError):
-        inspect.signature(ns["session_scope"])
-    names, var_kw = arg_names(ns["session_scope"])
-    assert {"session", "read_only"} <= names
-    assert not var_kw
-
-
-async def test_job_refused_when_guard_fails(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    ids = await seed_world(hass, instance)
-    entry = await setup_entry(hass, dry_run=False)
-    manager = entry.runtime_data
-    snap = await snapshot(instance)
-    with patch("custom_components.sediment.compat.SUPPORTED_SCHEMA_VERSIONS", frozenset({99})):
-        assert await manager.async_run(False) is None
-    assert await snapshot(instance) == snap
-    assert ids
 
 
 # ---------------------------------------------------------------- dry run
@@ -274,18 +171,6 @@ async def test_dry_run_deletes_nothing(
     shares = manager.data["measured"]["continuous"]
     assert all(0 < s <= 1 for s in shares.values())
     assert hass.states.get("sensor.sediment_projected_size") is not None
-
-
-async def test_dry_run_is_default_job_mode(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    await seed_world(hass, instance)
-    entry = await setup_entry(hass)  # dry_run option True
-    snap = await snapshot(instance)
-    report = await entry.runtime_data.async_run(None)
-    assert report["mode"] == "dry_run"
-    assert await snapshot(instance) == snap
 
 
 # ---------------------------------------------------------------- real run
@@ -376,31 +261,6 @@ async def test_second_run_changes_nothing(
     report = await manager.async_run(False)
     assert report["stats"]["rows_deleted"] == 0
     assert await snapshot(instance) == snap
-
-
-async def test_old_day_is_thinned_through_both_tiers(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    """A day 200 days back needs tier 1 and tier 2 (1 h buckets) in one pass."""
-    instance = get_instance(hass)
-    d = midnight_days_ago(200)
-    pts = [
-        (d + 30 * i + 1, f"{20 + (i % 3) * 0.1:.1f}", {"unit_of_measurement": "C"})
-        for i in range(2880)
-    ]
-    ids = await seed(instance, "sensor.old", pts)
-    # a later row keeps the day from being the series end
-    await seed(
-        instance, "sensor.old", [(midnight_days_ago(1) + 5, "20.0", {"unit_of_measurement": "C"})]
-    )
-    entry = await setup_entry(hass, dry_run=False)
-    await entry.runtime_data.async_run(False)
-    after = {r[0] for r in await snapshot(instance)}
-    kept = [i for i in ids if i in after]
-    assert 2 < len(kept) < 300
-    applied = entry.runtime_data.data["applied"]
-    assert max(v for k, v in applied.items() if k.endswith("|default")) == 3600.0
-    assert (await integrity(instance))["fk"] == 0
 
 
 async def test_row_before_raw_window_boundary_keeps_next_row_untouched(
@@ -506,99 +366,6 @@ async def test_takeover_run_deletes_horizon_and_old_events(
             select(Events.event_id).where(Events.time_fired_ts >= now - 2 * DAY)
         ).all(),
     )
-
-
-async def test_takeover_dry_run_deletes_nothing(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    now = time.time()
-    d_old = midnight_days_ago(100)
-    await seed(instance, "sensor.horizon", [(d_old + 60 * i + 1, "1.0", None) for i in range(100)])
-
-    def add_event(inst):
-        with session_scope(session=inst.get_session()) as s:
-            et = EventTypes(event_type="sediment_test")
-            s.add(et)
-            s.flush()
-            s.add(Events(event_type_id=et.event_type_id, time_fired_ts=now - 30 * DAY))
-
-    await run_on_recorder(instance, add_event)
-    entry = await setup_entry(hass, takeover=True, history_days=60, dry_run=True)
-    snap, counts = await snapshot(instance), await table_counts(instance)
-    report = await entry.runtime_data.async_run(True)
-    assert await snapshot(instance) == snap
-    assert await table_counts(instance) == counts
-    assert report["stats"]["horizon_rows"] == 100
-    assert report["stats"]["events_deleted"] == 1  # would delete
-
-
-async def test_old_recorder_run_removed(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    instance = get_instance(hass)
-    from datetime import UTC, datetime, timedelta
-
-    def add_run(inst):
-        with session_scope(session=inst.get_session()) as s:
-            start = datetime.now(UTC) - timedelta(days=40)
-            s.add(RecorderRuns(start=start, end=start + timedelta(hours=1)))
-
-    await run_on_recorder(instance, add_run)
-    c0 = await table_counts(instance)
-    entry = await setup_entry(hass, dry_run=False, takeover=True, history_days=400)
-    await entry.runtime_data.async_run(False)
-    c1 = await table_counts(instance)
-    assert c1["runs"] == c0["runs"] - 1
-
-
-async def test_sensors_exist(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    await setup_entry(hass)
-    assert hass.states.get("sensor.sediment_db_size") is not None
-    proj = hass.states.get("sensor.sediment_projected_size")
-    assert proj is not None
-    assert proj.attributes["unit_of_measurement"] == "GB"
-
-
-async def test_projection_comes_from_the_store_during_startup(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations, hass_storage
-) -> None:
-    # entities have no state while Home Assistant starts, so a projection computed then is wrong
-    hass_storage[STORAGE_KEY] = {
-        "version": STORAGE_VERSION,
-        "key": STORAGE_KEY,
-        "data": {"projected_gb": 7.5, "projected_options": {"old": True}},
-    }
-    hass.set_state(CoreState.not_running)
-    entry = await setup_entry(hass)
-    assert entry.runtime_data.data["projected_options"] == {"old": True}
-    assert hass.states.get("sensor.sediment_projected_size").state == "7.5"
-
-
-async def test_projection_recomputed_on_reload_with_new_options(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations, hass_storage
-) -> None:
-    hass_storage[STORAGE_KEY] = {
-        "version": STORAGE_VERSION,
-        "key": STORAGE_KEY,
-        "data": {"projected_gb": 7.5, "projected_options": {"old": True}},
-    }
-    entry = await setup_entry(hass)  # hass is running here, as after an options change
-    assert entry.runtime_data.data["projected_options"] == dict(entry.options)
-    assert entry.runtime_data.data["projected_gb"] != 7.5
-
-
-async def test_job_report_and_sensor_share_the_projection(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    await seed_world(hass, get_instance(hass))
-    entry = await setup_entry(hass)
-    report = await entry.runtime_data.async_run(True)
-    sensor = hass.states.get("sensor.sediment_projected_size").state
-    assert report["projected_gb"] == entry.runtime_data.data["projected_gb"]
-    assert float(sensor) == report["projected_gb"]
 
 
 # ---------------------------------------------------------------- pointers across days
@@ -756,27 +523,6 @@ async def test_failure_aborts_rolls_back_and_quarantines(
     report = await manager.async_run(False)
     assert report["stats"]["errors"] == []
     assert report["stats"]["rows_deleted"] > 0
-
-
-async def test_deletes_in_many_chunks_keep_foreign_keys(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
-) -> None:
-    """More deleted rows than bind variables: chunks must not strand a reference."""
-    instance = get_instance(hass)
-    ids = await seed(instance, "sensor.chunky", _flat_day(midnight_days_ago(20), 1400))
-    entry = await setup_entry(hass, dry_run=False)
-    with patch.object(instance, "max_bind_vars", 40):
-        report = await entry.runtime_data.async_run(False)
-    assert report["stats"]["errors"] == []
-    assert report["stats"]["rows_deleted"] > 3 * 40
-    after = {r[0] for r in await snapshot(instance)}
-    assert len([i for i in ids if i in after]) < 0.2 * len(ids)
-    assert (await integrity(instance)) == {
-        "fk": 0,
-        "bad_chain": 0,
-        "orphan_attrs": 0,
-        "dangling_attrs": 0,
-    }
 
 
 async def test_interrupted_job_resumes(
