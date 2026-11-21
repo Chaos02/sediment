@@ -30,7 +30,7 @@ Notable changes land here. The format follows
 - The importer remembers the bound for entities without live rows per file (an interrupted import converges on re-run), seals every written column with the content hash, rejects impossible rows and unusable chain links, skips rows the nightly job would delete anyway, and accepts files from `<config>/sediment/` (never from `<config>/www`).
 - Repair issue `retention_inferred` when old states make Sediment hold the recorder's purge back without a stored takeover.
 - English and German translations.
-- Run timers in `sediment/last_report.json` (`timers`) and in the stored last run: seconds spent planning, deleting, committing, on the recorder thread, waiting for the recorder, backing off, and per phase. They show where a nightly run spends its time.
+- Every real run logs one INFO line at its end with the seconds spent planning, deleting, committing, waiting for the recorder, backing off and repacking, plus its rows and days. It shows where a nightly run spends its time.
 - Repair issue "Sediment is falling behind": a real run ended with days older than the raw window still to thin (the recorder queue did not drain, or a step failed). The next run that finishes them clears it.
 
 ### Changed

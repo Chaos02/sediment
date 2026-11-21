@@ -68,7 +68,7 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
-from .pace import note_unfinished, timer_report
+from .pace import note_unfinished, run_log_line
 from .profiles import (
     EntityMeta,
     Schedule,
@@ -862,7 +862,17 @@ class SedimentManager:
             await self.async_update_projection()
         seconds = time.monotonic() - started
         report = self._make_report(job, dry, seconds, waited)
-        report["timers"] = timer_report(job.timers, seconds, waited, queue_wait)
+        if not dry:
+            st = job.stats
+            _LOGGER.info(
+                "Sediment run finished, %d rows deleted in %d entity-days, %d days left, "
+                "%d errors; %s",
+                st.rows_deleted,
+                st.entity_days,
+                st.unfinished_days or 0,
+                len(st.errors),
+                run_log_line(job.timers, seconds, waited, queue_wait),
+            )
         self._note_result(job.stats.errors)
         if not dry and active and not job.cancelled:
             self.data["real_horizon_days"] = float(s.history_days)
@@ -872,7 +882,6 @@ class SedimentManager:
             "rows_deleted": job.stats.rows_deleted,
             "entity_days": job.stats.entity_days,
             "errors": job.stats.errors,
-            "timers": report["timers"],
             # only a finished real run judges; a dry run or an unload keeps the last finding
             "unfinished_days": job.stats.unfinished_days
             if job.stats.unfinished_days is not None

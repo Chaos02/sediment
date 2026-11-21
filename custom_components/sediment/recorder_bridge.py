@@ -294,12 +294,12 @@ class Job:
         if cfg.repack and (not cfg.dry_run or cfg.housekeeping):
             self.stats.phase = "repack"
             yield
-            began = time.monotonic()
+            self.timers.lap()
             try:
                 repack_database(instance)
             except Exception as err:
                 self._record_error("repack", err)
-            self.timers.add_phase("repack", time.monotonic() - began)
+            self.timers.add("repack")
         self.stats.phase = "done"
 
     def _guarded(self, phase: str, gen: Iterator[None]) -> Iterator[None]:
@@ -308,7 +308,6 @@ class Job:
         while True:
             if self.cancelled:
                 return
-            began = time.monotonic()
             try:
                 next(gen)
             except StopIteration:
@@ -316,8 +315,6 @@ class Job:
             except Exception as err:
                 self._record_error(phase, err)
                 return
-            finally:
-                self.timers.add_phase(phase, time.monotonic() - began)
             yield
 
     def _record_error(self, phase: str, err: Exception) -> None:

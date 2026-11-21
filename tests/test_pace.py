@@ -20,18 +20,15 @@ def _issue(hass):
     return ir.async_get(hass).async_get_issue(DOMAIN, "falling_behind")
 
 
-async def test_report_has_timers_and_a_finished_run_leaves_nothing(
-    recorder_mock, hass: HomeAssistant, enable_custom_integrations
+async def test_finished_run_logs_its_timers_and_leaves_nothing(
+    recorder_mock, hass: HomeAssistant, enable_custom_integrations, caplog
 ) -> None:
     await seed(get_instance(hass), "sensor.t", _flat_day(midnight_days_ago(20)))
     entry = await setup_entry(hass, dry_run=False)
     report = await entry.runtime_data.async_run(False)
-    timers = report["timers"]
-    assert timers["recorder_seconds"] > 0
-    assert timers["phase_seconds"]["thin"] > 0
-    assert timers["delete_seconds"] > 0 and timers["plan_seconds"] > 0
+    assert "Sediment run finished" in caplog.text
+    assert "plan " in caplog.text and "repack " in caplog.text
     assert report["stats"]["unfinished_days"] == 0
-    assert entry.runtime_data.data["last_run"]["timers"] == timers
     assert _issue(hass) is None
 
 

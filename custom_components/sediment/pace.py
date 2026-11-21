@@ -1,7 +1,4 @@
-"""Where a run spends its time, and whether it left work undone.
-
-Plain numbers only: the report holds seconds and counts, labels belong to the UI layer.
-"""
+"""Where a run spends its time (logged), and whether it left work undone (repair issue)."""
 
 from __future__ import annotations
 
@@ -31,10 +28,15 @@ class Timers:
 
     def __init__(self) -> None:
         # plan: selecting and deciding; delete: relink, protect and delete statements;
-        # commit: closing the session; step: every step on the recorder thread, in total
-        self.seconds: dict[str, float] = {"plan": 0.0, "delete": 0.0, "commit": 0.0, "step": 0.0}
-        # thin, reprofile, drop, horizon, cleanup, simulate, repack (phases contain the above)
-        self.phases: dict[str, float] = {}
+        # commit: closing the session; step: every step on the recorder thread, in total;
+        # repack: the database repack, which runs inside a step
+        self.seconds: dict[str, float] = {
+            "plan": 0.0,
+            "delete": 0.0,
+            "commit": 0.0,
+            "step": 0.0,
+            "repack": 0.0,
+        }
         self._t = time.monotonic()
 
     def lap(self) -> None:
@@ -56,33 +58,24 @@ class Timers:
         finally:
             self.add("commit")
 
-    def add_phase(self, phase: str, seconds: float) -> None:
-        self.phases[phase] = self.phases.get(phase, 0.0) + seconds
 
+def run_log_line(timers: Timers, seconds: float, backoff: float, queue_wait: float) -> str:
+    """The INFO line at the end of a real run: where its time went, in seconds.
 
-def timer_report(
-    timers: Timers, seconds: float, backoff: float, queue_wait: float
-) -> dict[str, Any]:
-    """The timers of one run as the report holds them, in seconds.
-
-    seconds is the whole run. recorder_seconds is the time the job's steps ran on the
-    recorder thread, queue_wait_seconds the time the event loop waited for a step beyond
-    that (recorder queue and thread hand-over), backoff_seconds the sleeps while the recorder
-    queue was too long. other_seconds is the rest (saving the store, between steps).
+    plan: selecting and deciding; delete: relink, protect and delete statements; commit:
+    closing the write sessions; recorder other: the rest of the job's steps on the recorder
+    thread; recorder wait: the event loop waiting for a step beyond its run time (recorder
+    queue); backoff: sleeps while the recorder queue was too long; other: everything else.
     """
-    step = timers.seconds["step"]
-    inside = timers.seconds["plan"] + timers.seconds["delete"] + timers.seconds["commit"]
-    return {
-        "plan_seconds": round(timers.seconds["plan"], 2),
-        "delete_seconds": round(timers.seconds["delete"], 2),
-        "commit_seconds": round(timers.seconds["commit"], 2),
-        "recorder_other_seconds": round(max(0.0, step - inside), 2),
-        "recorder_seconds": round(step, 2),
-        "queue_wait_seconds": round(queue_wait, 2),
-        "backoff_seconds": round(backoff, 2),
-        "other_seconds": round(max(0.0, seconds - step - queue_wait - backoff), 2),
-        "phase_seconds": {k: round(v, 2) for k, v in timers.phases.items()},
-    }
+    t = timers.seconds
+    inside = t["plan"] + t["delete"] + t["commit"]
+    other = max(0.0, seconds - t["step"] - queue_wait - backoff)
+    return (
+        f"total {seconds:.1f} s: plan {t['plan']:.1f} s, delete {t['delete']:.1f} s, "
+        f"commit {t['commit']:.1f} s, recorder other {max(0.0, t['step'] - inside):.1f} s, "
+        f"recorder wait {queue_wait:.1f} s, backoff {backoff:.1f} s, other {other:.1f} s, "
+        f"repack {t['repack']:.1f} s"
+    )
 
 
 def note_unfinished(hass: HomeAssistant, days: int) -> None:
