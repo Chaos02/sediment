@@ -52,6 +52,7 @@ from sqlalchemy.orm import Session
 
 from . import codec
 from .const import BATCH_SECONDS, DRY_RUN_MAX_DAYS, PARAM_REFRESH_DAYS
+from .pace import Timers, unfinished_days
 from .profiles import DAY, EntityMeta, Rule, Schedule, resolve
 
 _LOGGER = logging.getLogger(__name__)
@@ -177,6 +178,8 @@ class JobStats:
     reprofiled_entities: int = 0
     housekeeping: bool = False
     coarse_horizon_rows: int = 0
+    # real run: days older than the raw window with thinning left when the run ended
+    unfinished_days: int | None = None
 
 
 # lower = more conservative with the data
@@ -215,6 +218,7 @@ class Job:
         )
         self.cancelled = False
         self.finished = False
+        self.timers = Timers()
         self._gen: Iterator[None] | None = None
         self._attr_cache: dict[int, dict] = {}
         self._emap: dict[int, str] = {}
@@ -223,6 +227,20 @@ class Job:
     # ------------------------------------------------------------ driver
     def step(self, instance: Any) -> bool:
         """Run units of work for about BATCH_SECONDS. Returns True when the job is over."""
+        began = time.monotonic()
+        try:
+            return self._step(instance)
+        finally:
+            self.timers.seconds["step"] += time.monotonic() - began
+
+    def count_unfinished(self, instance: Any) -> int:
+        """Days older than the raw window that still have thinning to do. Read only."""
+        with session_scope(session=instance.get_session(), read_only=True) as session:
+            min_ts = session.execute(select(func.min(States.last_updated_ts))).scalar()
+        cfg = self.cfg
+        return unfinished_days(min_ts, cfg.now, cfg.cutoff, cfg.schedules, self.state["applied"])
+
+    def _step(self, instance: Any) -> bool:
         if self.finished:
             return True
         if self._gen is None:
@@ -249,6 +267,7 @@ class Job:
     def _work(self, instance: Any) -> Iterator[None]:
         cfg = self.cfg
         try:
+            self.timers.lap()
             with session_scope(session=instance.get_session(), read_only=True) as session:
                 self._emap = {
                     mid: eid
@@ -256,6 +275,7 @@ class Job:
                         select(StatesMeta.metadata_id, StatesMeta.entity_id)
                     ).all()
                 }
+            self.timers.add("plan")
         except Exception as err:
             _LOGGER.exception("Sediment could not read the entity list")
             self._record_error("start", err)
@@ -274,10 +294,12 @@ class Job:
         if cfg.repack and (not cfg.dry_run or cfg.housekeeping):
             self.stats.phase = "repack"
             yield
+            began = time.monotonic()
             try:
                 repack_database(instance)
             except Exception as err:
                 self._record_error("repack", err)
+            self.timers.add_phase("repack", time.monotonic() - began)
         self.stats.phase = "done"
 
     def _guarded(self, phase: str, gen: Iterator[None]) -> Iterator[None]:
@@ -286,6 +308,7 @@ class Job:
         while True:
             if self.cancelled:
                 return
+            began = time.monotonic()
             try:
                 next(gen)
             except StopIteration:
@@ -293,6 +316,8 @@ class Job:
             except Exception as err:
                 self._record_error(phase, err)
                 return
+            finally:
+                self.timers.add_phase(phase, time.monotonic() - began)
             yield
 
     def _record_error(self, phase: str, err: Exception) -> None:
@@ -567,8 +592,10 @@ class Job:
     def _thin(self, instance: Any) -> Iterator[None]:
         cfg = self.cfg
         cutoff = cfg.cutoff
+        self.timers.lap()
         with session_scope(session=instance.get_session(), read_only=True) as session:
             min_ts = session.execute(select(func.min(States.last_updated_ts))).scalar()
+        self.timers.add("plan")
         if min_ts is None:
             return
         first_day = int(min_ts // DAY)
@@ -590,6 +617,7 @@ class Job:
             if not todo:
                 continue
             self.stats.pending_days += 1
+            self.timers.lap()
             with session_scope(session=instance.get_session(), read_only=True) as session:
                 counts = {
                     mid: n
@@ -600,6 +628,7 @@ class Job:
                     ).all()
                     if mid is not None
                 }
+            self.timers.add("plan")
             for profile, sched, k, width in todo:
                 key = day_key(day, profile)
                 prog = self.state["progress"]
@@ -759,8 +788,9 @@ class Job:
     ) -> None:
         cutoff = self.cfg.cutoff
         bind = instance.max_bind_vars
-        with session_scope(session=instance.get_session()) as session:
+        with self.timers.write_scope(instance) as session:
             res = self._decide(session, instance, mid, d0, d1, cfgs, abs_idx, flap)
+            self.timers.add("plan")
             if res is None:
                 return
             seq, off, n_day = res["seq"], res["off"], res["n_day"]
@@ -797,6 +827,7 @@ class Job:
                 )
             attr_ids = {seq[p][4] for p in plan["delete_pos"] if seq[p][4] is not None}
             self._delete_states(session, instance, delete_ids, attr_ids, cutoff, null_own=True)
+            self.timers.add("delete")
 
     def _protect(
         self,
@@ -906,21 +937,11 @@ class Job:
         cutoff = cfg.cutoff
         with session_scope(session=instance.get_session(), read_only=True) as session:
             min_ts = session.execute(select(func.min(States.last_updated_ts))).scalar()
-        applied = self.state["applied"]
         _cur, _old, changed = self._profile_changes()
         stats.reprofiled_entities = len(changed)
-        if min_ts is not None:
-            for day in range(int(min_ts // DAY), int(cutoff // DAY)):
-                age = (cfg.now - (day + 1) * DAY) / DAY
-                for profile, sched in cfg.schedules.items():
-                    k = sched.target_index(age)
-                    if (
-                        k is not None
-                        and k >= 0
-                        and applied.get(day_key(day, profile), 0.0) < sched.tiers[k].cfg.bucket
-                    ):
-                        stats.pending_days += 1
-                        break
+        stats.pending_days += unfinished_days(
+            min_ts, cfg.now, cutoff, cfg.schedules, self.state["applied"]
+        )
         yield
         for day in range(today - DRY_RUN_MAX_DAYS, today):
             d0 = day * DAY

@@ -222,6 +222,10 @@
     "retention_inferred": {
       "title": "Sediment found old history and holds the purge back",
       "description": "Sediment found states that are {days} days old, older than the {keep_days} days the recorder keeps. Sediment cannot tell whether it thinned them earlier. So it holds back Home Assistant's own purge to protect them. This is safe: nothing is deleted.\n\nIf Sediment never thinned this database (for example you lowered the recorder's keep days), untick the takeover in the options. Sediment asks you to confirm, because the built-in purge then deletes everything older than {keep_days} days at its next nightly run."
+    },
+    "falling_behind": {
+      "title": "Sediment is falling behind",
+      "description": "The last nightly job stopped with {days} days of history still to thin, because the recorder queue did not drain or a step failed. Nothing is lost, the days stay as they are and the next run continues with them. If this repeats, the nightly job does not keep up with new history. See the timers in `sediment/last_report.json` for where the time goes."
     }
   },
   "services": {

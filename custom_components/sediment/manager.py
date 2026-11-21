@@ -68,6 +68,7 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
+from .pace import note_unfinished, timer_report
 from .profiles import (
     EntityMeta,
     Schedule,
@@ -378,6 +379,8 @@ class SedimentManager:
             self.data.setdefault(key, {})
         await self._infer_ownership()
         await self.async_apply_takeover()
+        # the issues are removed on unload; the last real run's finding survives in the store
+        note_unfinished(self.hass, int(self.data.get("last_run", {}).get("unfinished_days") or 0))
         self._unsubs.append(
             async_track_time_change(
                 self.hass, self._nightly, hour=JOB_HOUR, minute=JOB_MINUTE, second=0
@@ -807,6 +810,7 @@ class SedimentManager:
         self.job = job
         started = time.monotonic()
         waited = 0.0
+        queue_wait = 0.0
         try:
             while True:
                 if self._closing or job.cancelled:
@@ -820,9 +824,12 @@ class SedimentManager:
                         job.cancelled = True
                         break
                     continue
+                queued = time.monotonic()
+                ran = job.timers.seconds["step"]
                 fut = run_on_recorder(instance, job.step)
                 try:
                     done = await asyncio.shield(fut)
+                    queue_wait += time.monotonic() - queued - (job.timers.seconds["step"] - ran)
                 except asyncio.CancelledError:
                     job.cancelled = True
                     # the step is running on the recorder thread; give it a while to
@@ -844,9 +851,18 @@ class SedimentManager:
             measured = solver.measured_shares_from_counts(job.stats.share_counts)
             if measured:
                 self.data["measured"] = measured
+        if not dry and not self._closing:
+            # what is left decides the falling-behind issue (read only, off the recorder thread)
+            with suppress(Exception):
+                job.stats.unfinished_days = await self.hass.async_add_executor_job(
+                    job.count_unfinished, instance
+                )
+                note_unfinished(self.hass, job.stats.unfinished_days)
         if not self._closing:
             await self.async_update_projection()
-        report = self._make_report(job, dry, time.monotonic() - started, waited)
+        seconds = time.monotonic() - started
+        report = self._make_report(job, dry, seconds, waited)
+        report["timers"] = timer_report(job.timers, seconds, waited, queue_wait)
         self._note_result(job.stats.errors)
         if not dry and active and not job.cancelled:
             self.data["real_horizon_days"] = float(s.history_days)
@@ -856,6 +872,11 @@ class SedimentManager:
             "rows_deleted": job.stats.rows_deleted,
             "entity_days": job.stats.entity_days,
             "errors": job.stats.errors,
+            "timers": report["timers"],
+            # only a finished real run judges; a dry run or an unload keeps the last finding
+            "unfinished_days": job.stats.unfinished_days
+            if job.stats.unfinished_days is not None
+            else self.data.get("last_run", {}).get("unfinished_days"),
         }
         await self.store.async_save(deepcopy(self.data))
         self.last_report = report

@@ -222,6 +222,10 @@
     "retention_inferred": {
       "title": "Sediment hat alten Verlauf gefunden und hält die Bereinigung zurück",
       "description": "Sediment hat Zustände gefunden, die {days} Tage alt sind, älter als die {keep_days} Tage, die der Recorder behält. Sediment kann nicht erkennen, ob es sie früher ausgedünnt hat. Deshalb hält es die Bereinigung von Home Assistant zu ihrem Schutz zurück. Das ist sicher: Es wird nichts gelöscht.\n\nHat Sediment diese Datenbank nie ausgedünnt (zum Beispiel weil du die Aufbewahrungstage des Recorders gesenkt hast), entferne in den Optionen den Haken für die Übernahme. Sediment fragt nach einer Bestätigung, denn die eingebaute Bereinigung löscht dann bei ihrem nächsten nächtlichen Lauf alles, was älter als {keep_days} Tage ist."
+    },
+    "falling_behind": {
+      "title": "Sediment kommt nicht hinterher",
+      "description": "Der letzte nächtliche Lauf wurde beendet, obwohl noch {days} Tage Verlauf auszudünnen sind, weil sich die Warteschlange des Recorders nicht geleert hat oder ein Schritt fehlgeschlagen ist. Es geht nichts verloren, die Tage bleiben unverändert und der nächste Lauf macht damit weiter. Wiederholt sich das, schafft der nächtliche Lauf den neuen Verlauf nicht. Wo die Zeit bleibt, zeigen die Zeitmesser in `sediment/last_report.json`."
     }
   },
   "services": {

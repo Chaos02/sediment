@@ -62,6 +62,7 @@ ISSUE_DIALECT: Final = "unsupported_database"
 ISSUE_SAFETY_NET: Final = "safety_net"
 ISSUE_JOB_FAILING: Final = "job_failing"
 ISSUE_INFERRED: Final = "retention_inferred"
+ISSUE_FALLING_BEHIND: Final = "falling_behind"
 ALL_ISSUES: Final = (
     ISSUE_TAKEOVER_BLOCKED,
     ISSUE_PROTECTING,
@@ -69,6 +70,7 @@ ALL_ISSUES: Final = (
     ISSUE_SAFETY_NET,
     ISSUE_JOB_FAILING,
     ISSUE_INFERRED,
+    ISSUE_FALLING_BEHIND,
 )
 JOB_FAIL_ISSUE_AFTER: Final = 3
 
