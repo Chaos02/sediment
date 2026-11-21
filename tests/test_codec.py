@@ -6,7 +6,7 @@ import random
 
 import pytest
 
-from custom_components.sediment import codec
+from custom_components.sediment import codec, codec_eval
 from custom_components.sediment.codec import DEFAULT_TIERS, TierCfg
 
 DAY = 86400.0
@@ -77,7 +77,7 @@ def test_continuous_invariants(seed):
         assert set(kept) <= previous, "tiers must be subsets of the previous tier"
         previous = set(kept)
         if k == 0:
-            r = codec.interp_errors(t, v, kept, E, DEFAULT_TIERS[0].bucket, active)
+            r = codec_eval.interp_errors(t, v, kept, E, DEFAULT_TIERS[0].bucket, active)
             # exact extremes in active buckets, 2E in flat buckets (restated invariant)
             assert r["ext"]["exact"] == r["ext"]["buckets"]
             assert r["over2_flat"] == 0
@@ -127,7 +127,7 @@ def test_counter_deltas_exact(seed):
     t, v, s = make_counter(seed)
     chain = codec.run_chain("counter", t, v, s, {}, DEFAULT_TIERS, t[-1])
     for (kept, _E, _a), cfg in zip(chain, DEFAULT_TIERS, strict=True):
-        _total, bad = codec.counter_exact(t, v, kept, cfg.bucket)
+        _total, bad = codec_eval.counter_exact(t, v, kept, cfg.bucket)
         assert bad == 0, f"counter bucket end values must stay exact (seed {seed})"
 
 

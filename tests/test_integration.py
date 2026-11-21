@@ -229,14 +229,14 @@ async def test_real_run_thins_old_day_and_keeps_integrity(
     assert row[4] is None
 
     # counter: bucket end values stay exact
-    from custom_components.sediment import codec
+    from custom_components.sediment import codec_eval
 
     en = ids["energy"]
     raw_vals = {r[0]: r for r in before}
     t_raw = [raw_vals[i][3] for i in en]
     v_raw = [float(raw_vals[i][2]) for i in en]
     kept_pos = [k for k, i in enumerate(en) if i in after_ids]
-    tot, bad = codec.counter_exact(t_raw, v_raw, kept_pos, 900.0)
+    tot, bad = codec_eval.counter_exact(t_raw, v_raw, kept_pos, 900.0)
     assert tot > 0 and bad == 0
     assert len(kept_pos) < 0.2 * len(en)
 

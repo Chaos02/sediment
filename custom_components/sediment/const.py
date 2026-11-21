@@ -33,7 +33,7 @@ DEFAULT_TAKEOVER: Final = False
 HISTORY_CHOICES: Final = ("1", "2", "5", "10", "custom")
 RESOLUTIONS: Final = ("fine", "standard", "coarse", "custom")
 
-# --- recorder compatibility (see recorder_bridge.check_compat)
+# --- recorder compatibility (see compat.check_compat)
 SUPPORTED_SCHEMA_VERSIONS: Final = frozenset({53})
 
 # --- nightly job
