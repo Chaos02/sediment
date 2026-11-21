@@ -24,7 +24,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from sqlalchemy import select
 
 from custom_components.sediment.const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
-from custom_components.sediment.recorder_bridge import run_on_recorder
+from custom_components.sediment.recorder_thread import run_on_recorder
 
 from .common import (
     DAY,
@@ -782,7 +782,8 @@ async def test_deletes_in_many_chunks_keep_foreign_keys(
 async def test_interrupted_job_resumes(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
 ) -> None:
-    from custom_components.sediment.recorder_bridge import Job, JobConfig
+    from custom_components.sediment.job_types import JobConfig
+    from custom_components.sediment.recorder_bridge import Job
 
     instance = get_instance(hass)
     for name in ("a", "b", "c"):

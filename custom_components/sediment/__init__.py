@@ -18,7 +18,8 @@ from .const import (
     SERVICE_IMPORT_HISTORY,
     SERVICE_RUN_NOW,
 )
-from .manager import SedimentManager, async_release_for_removal
+from .manager import SedimentManager
+from .manager_takeover import async_release_for_removal
 
 _LOGGER = logging.getLogger(__name__)
 

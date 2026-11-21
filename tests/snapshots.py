@@ -76,14 +76,14 @@ def run_tool(out: Path, snapshots: list[Path], now: float, *extra: str) -> dict:
 
 def reseal(path: Path) -> None:
     """Recompute the content hash after a test changed an import file on purpose."""
-    from custom_components.sediment import importer
+    from custom_components.sediment import import_file
 
     conn = sqlite3.connect(path)
     meta = {k: json.loads(v) for k, v in conn.execute("SELECT key, value FROM meta")}
-    extra = {k: meta.get(k) for k in importer.HASHED_META}
+    extra = {k: meta.get(k) for k in import_file.HASHED_META}
     conn.execute(
         "UPDATE meta SET value = ? WHERE key = 'content_hash'",
-        (json.dumps(importer.content_hash(conn, extra)),),
+        (json.dumps(import_file.content_hash(conn, extra)),),
     )
     conn.commit()
     conn.close()

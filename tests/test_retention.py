@@ -29,7 +29,7 @@ from sqlalchemy import func, select
 
 from custom_components.sediment.compat import Takeover
 from custom_components.sediment.const import DOMAIN
-from custom_components.sediment.recorder_bridge import run_on_recorder
+from custom_components.sediment.recorder_thread import run_on_recorder
 
 from .common import DAY, integrity, midnight_days_ago, read, seed, snapshot
 from .test_integration import _flat_day, setup_entry
@@ -161,7 +161,10 @@ async def test_guard_failure_at_job_time_does_not_restore(
     instance = get_instance(hass)
     entry = await setup_entry(hass, dry_run=False, takeover=True, history_days=1830)
     manager = entry.runtime_data
-    with patch("custom_components.sediment.manager.check_compat", return_value=["boom"]):
+    with (
+        patch("custom_components.sediment.manager.check_compat", return_value=["boom"]),
+        patch("custom_components.sediment.manager_takeover.check_compat", return_value=["boom"]),
+    ):
         assert await manager.async_run(False) is None
     assert instance.auto_purge is False and manager.takeover.active and manager.owned
     assert _issue(hass, "takeover_protecting") is not None
@@ -295,8 +298,9 @@ async def test_no_safety_net_issue_when_yaml_already_disables_purge(
 
 # ---------------------------------------------------------------- 2. attribute cache
 async def _climate_job(hass, prefill: int):
+    from custom_components.sediment.job_types import JobConfig
     from custom_components.sediment.manager import build_meta
-    from custom_components.sediment.recorder_bridge import Job, JobConfig
+    from custom_components.sediment.recorder_bridge import Job
 
     instance = get_instance(hass)
     d = midnight_days_ago(20)
@@ -654,8 +658,9 @@ async def test_non_sqlite_refuses_writes_but_allows_a_dry_run(
 async def test_known_state_class_survives_an_unavailable_refresh(
     recorder_mock, hass: HomeAssistant, enable_custom_integrations
 ) -> None:
+    from custom_components.sediment.job_types import JobConfig
     from custom_components.sediment.profiles import EntityMeta
-    from custom_components.sediment.recorder_bridge import Job, JobConfig
+    from custom_components.sediment.recorder_bridge import Job
 
     instance = get_instance(hass)
     d = midnight_days_ago(20)
@@ -707,7 +712,7 @@ async def test_big_entity_day_is_processed_in_slices(
     instance = get_instance(hass)
     ids = await seed(instance, "sensor.huge", _flat_day(midnight_days_ago(20), 1400))
     entry = await setup_entry(hass, dry_run=False)
-    with patch("custom_components.sediment.recorder_bridge.MAX_UNIT_ROWS", 300):
+    with patch("custom_components.sediment.job_thin.MAX_UNIT_ROWS", 300):
         report = await entry.runtime_data.async_run(False)
     assert report["stats"]["errors"] == [] and report["stats"]["oversize"] == []
     assert report["stats"]["entity_days"] >= 4, "the day was cut into several units"
@@ -728,7 +733,7 @@ async def test_unsliceable_entity_day_is_reported_not_processed(
     ]
     entry = await setup_entry(hass, dry_run=False, resolution="custom", custom_tiers=one_day)
     snap = await snapshot(instance)
-    with patch("custom_components.sediment.recorder_bridge.MAX_UNIT_ROWS", 300):
+    with patch("custom_components.sediment.job_thin.MAX_UNIT_ROWS", 300):
         report = await entry.runtime_data.async_run(False)
     assert len(report["stats"]["oversize"]) == 1
     assert await snapshot(instance) == snap and ids

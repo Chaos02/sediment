@@ -50,8 +50,10 @@ from .const import (
     HISTORY_CHOICES,
     RESOLUTIONS,
 )
-from .manager import Settings, async_estimate, async_estimate_variants, async_retention_owned
+from .estimate import async_estimate, async_estimate_variants
+from .manager import async_retention_owned
 from .profiles import coarsen_oldest, parse_rules, resolution_ladder
+from .settings import Settings
 
 CONF_CUSTOM_DAYS = "custom_days"
 YEARS_TO_DAYS = {"1": 365, "2": 730, "5": 1830, "10": 3650}

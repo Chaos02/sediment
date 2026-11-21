@@ -238,7 +238,7 @@ async def test_slices_keep_full_integrity(
     pts = _noisy(midnight_days_ago(21), 2880) + _noisy(midnight_days_ago(20), 2880)
     ids = await seed(instance, "sensor.huge", pts, null_old=frozenset({500, 3000}))
     entry = await setup_entry(hass, dry_run=False)
-    with patch("custom_components.sediment.recorder_bridge.MAX_UNIT_ROWS", 250):
+    with patch("custom_components.sediment.job_thin.MAX_UNIT_ROWS", 250):
         report = await entry.runtime_data.async_run(False)
     assert report["stats"]["errors"] == []
     snap = {r[0]: r for r in await snapshot(instance)}

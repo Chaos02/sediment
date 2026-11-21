@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from custom_components.sediment import solver
+from custom_components.sediment.job_thin import _plan
 from custom_components.sediment.profiles import (
     DAY,
     EntityMeta,
@@ -12,7 +13,6 @@ from custom_components.sediment.profiles import (
     resolution_ladder,
     resolve,
 )
-from custom_components.sediment.recorder_bridge import _plan
 
 
 # ---------------------------------------------------------------- rules

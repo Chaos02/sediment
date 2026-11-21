@@ -14,7 +14,7 @@ from homeassistant.components.recorder.db_schema import (
 from homeassistant.helpers.recorder import session_scope
 from sqlalchemy import func, select, text
 
-from custom_components.sediment.recorder_bridge import run_on_recorder
+from custom_components.sediment.recorder_thread import run_on_recorder
 
 DAY = 86400.0
 

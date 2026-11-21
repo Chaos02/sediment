@@ -11,7 +11,8 @@ from homeassistant.helpers.recorder import get_instance
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sediment.const import DOMAIN
-from custom_components.sediment.manager import Settings, async_estimate_variants
+from custom_components.sediment.estimate import async_estimate_variants
+from custom_components.sediment.settings import Settings
 
 from .common import midnight_days_ago, seed
 

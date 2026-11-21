@@ -6,7 +6,6 @@ import asyncio
 from collections.abc import Callable
 from contextlib import suppress
 from copy import deepcopy
-from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta
 import json
 import logging
@@ -17,7 +16,6 @@ from typing import Any
 from homeassistant.components import persistent_notification
 from homeassistant.core import CALLBACK_TYPE, CoreState, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.helpers.storage import Store
@@ -27,7 +25,6 @@ from . import solver
 from .compat import (
     Takeover,
     check_compat,
-    dialect_problem,
     oldest_row_age_days,
     snapshot_values,
 )
@@ -36,277 +33,35 @@ from .const import (
     BACKLOG_LIMIT,
     BACKOFF_GIVE_UP_SECONDS,
     BACKOFF_SECONDS,
-    CONF_COARSE_HORIZON_DAYS,
-    CONF_CUSTOM_TIERS,
-    CONF_DRY_RUN,
-    CONF_FLAP_COLLAPSE,
-    CONF_HISTORY_DAYS,
-    CONF_RAW_DAYS,
-    CONF_RESOLUTION,
-    CONF_RULES,
-    CONF_SIZE_CAP_GB,
     CONF_TAKEOVER,
-    DEFAULT_COARSE_HORIZON_DAYS,
-    DEFAULT_DRY_RUN,
-    DEFAULT_FLAP_COLLAPSE,
-    DEFAULT_HISTORY_DAYS,
-    DEFAULT_RAW_DAYS,
-    DEFAULT_RESOLUTION,
-    DEFAULT_TAKEOVER,
     DOMAIN,
-    ISSUE_DIALECT,
-    ISSUE_INFERRED,
-    ISSUE_JOB_FAILING,
-    ISSUE_PROTECTING,
-    ISSUE_SAFETY_NET,
-    ISSUE_TAKEOVER_BLOCKED,
-    JOB_FAIL_ISSUE_AFTER,
     JOB_HOUR,
     JOB_MINUTE,
     PROFILE_MAP_FILE,
-    REPORT_FILE,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
+from .estimate import (
+    async_estimate,
+    build_meta,
+    build_profile_map,
+    db_size_bytes,
+)
+from .issues import delete_issues
+from .manager_report import ReportMixin
+from .manager_takeover import TakeoverMixin
 from .pace import note_unfinished, run_log_line
 from .profiles import (
-    EntityMeta,
-    Schedule,
-    build_schedules,
     parse_rules,
     profile_map_hash,
     profile_signature,
-    resolve,
 )
+from .settings import Settings
 
 _LOGGER = logging.getLogger(__name__)
 
-ROWSTATS_TTL = 3600.0
 SAVE_INTERVAL = 30.0
 UNLOAD_WAIT_SECONDS = 30.0
-TOP_ENTITIES = 25
-
-
-@dataclass
-class Settings:
-    """The options of the config entry with defaults filled in."""
-
-    history_days: int = DEFAULT_HISTORY_DAYS
-    resolution: str = DEFAULT_RESOLUTION
-    custom_tiers: list[dict] | None = None
-    size_cap_gb: float | None = None
-    rules_text: str = ""
-    flap_collapse: bool = DEFAULT_FLAP_COLLAPSE
-    takeover: bool = DEFAULT_TAKEOVER
-    raw_days: int = DEFAULT_RAW_DAYS
-    dry_run: bool = DEFAULT_DRY_RUN
-    coarse_horizon_days: int = DEFAULT_COARSE_HORIZON_DAYS
-
-    @classmethod
-    def from_options(cls, opts: dict[str, Any]) -> Settings:
-        cap = opts.get(CONF_SIZE_CAP_GB)
-        return cls(
-            history_days=int(opts.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)),
-            resolution=opts.get(CONF_RESOLUTION, DEFAULT_RESOLUTION),
-            custom_tiers=opts.get(CONF_CUSTOM_TIERS),
-            size_cap_gb=float(cap) if cap else None,
-            rules_text=opts.get(CONF_RULES, ""),
-            flap_collapse=bool(opts.get(CONF_FLAP_COLLAPSE, DEFAULT_FLAP_COLLAPSE)),
-            takeover=bool(opts.get(CONF_TAKEOVER, DEFAULT_TAKEOVER)),
-            raw_days=int(opts.get(CONF_RAW_DAYS, DEFAULT_RAW_DAYS)),
-            dry_run=bool(opts.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)),
-            coarse_horizon_days=int(
-                opts.get(CONF_COARSE_HORIZON_DAYS, DEFAULT_COARSE_HORIZON_DAYS)
-            ),
-        )
-
-    def schedules(self) -> dict[str, Schedule]:
-        return build_schedules(
-            self.resolution,
-            self.custom_tiers,
-            self.raw_days,
-            self.history_days,
-            self.coarse_horizon_days,
-        )
-
-
-# ---------------------------------------------------------------- helpers shared with the flow
-def build_meta(hass: HomeAssistant) -> dict[str, EntityMeta]:
-    """What rules can match: device class, integration, state class."""
-    meta: dict[str, EntityMeta] = {}
-    reg = er.async_get(hass)
-    for ent in reg.entities.values():
-        meta[ent.entity_id] = EntityMeta(
-            device_class=ent.device_class or ent.original_device_class,
-            integration=ent.platform,
-        )
-    for st in hass.states.async_all():
-        old = meta.get(st.entity_id, EntityMeta())
-        meta[st.entity_id] = EntityMeta(
-            device_class=st.attributes.get("device_class") or old.device_class,
-            integration=old.integration,
-            state_class=st.attributes.get("state_class"),
-        )
-    return meta
-
-
-def sqlite_db_path(db_url: str) -> str | None:
-    """File path of a SQLite recorder URL, else None."""
-    prefix = "sqlite:///"
-    if not db_url.startswith(prefix) or ":memory:" in db_url:
-        return None
-    return db_url[len(prefix) :].split("?", 1)[0] or None
-
-
-def db_size_bytes(instance: Any) -> float | None:
-    """Size of the recorder database file (with its WAL), SQLite only."""
-    path = sqlite_db_path(getattr(instance, "db_url", "") or "")
-    if not path or not os.path.exists(path):
-        return None
-    total = os.path.getsize(path)
-    for suffix in ("-wal",):
-        if os.path.exists(path + suffix):
-            total += os.path.getsize(path + suffix)
-    return float(total)
-
-
-async def async_get_rowstats(hass: HomeAssistant, raw_days: float, force: bool = False) -> dict:
-    """Rows per entity over the raw window; cached for an hour."""
-    from .recorder_bridge import collect_rowstats
-
-    cache = hass.data.setdefault(DOMAIN, {}).setdefault("rowstats", {})
-    now = time.time()
-    if (
-        not force
-        and cache.get("data")
-        and now - cache["ts"] < ROWSTATS_TTL
-        and cache.get("raw_days") == raw_days
-    ):
-        return cache["data"]
-    instance = get_instance(hass)
-    data = await instance.async_add_executor_job(collect_rowstats, instance, now, raw_days)
-    cache.update({"data": data, "ts": now, "raw_days": raw_days})
-    return data
-
-
-async def async_estimate_inputs(
-    hass: HomeAssistant,
-    settings: Settings,
-    measured: dict[str, dict[str, float]] | None = None,
-) -> solver.Inputs:
-    """What the projection starts from: the recorder's real numbers and these settings."""
-    from .recorder_bridge import aggregate_by_class_profile
-
-    rs = await async_get_rowstats(hass, settings.raw_days)
-    meta = build_meta(hass)
-    rules, _errors = parse_rules(settings.rules_text)
-    states = hass.states
-
-    def classify(eid: str) -> str:
-        st = states.get(eid)
-        m = meta.get(eid)
-        return solver.guess_class(eid, st.state if st else None, m.state_class if m else None)
-
-    def profile_of(eid: str) -> str:
-        return resolve(eid, meta.get(eid), rules)[0]
-
-    rows_per_day = aggregate_by_class_profile(rs, classify, profile_of)
-    instance = get_instance(hass)
-    return solver.Inputs(
-        rows_per_day=rows_per_day,
-        schedules=settings.schedules(),
-        raw_days=settings.raw_days,
-        horizon_days=settings.history_days,
-        db_size_bytes=db_size_bytes(instance),
-        rows_in_db=float(rs["rows"]),
-        stats_rows_per_day=float(rs["stats_rows_per_day"]),
-        measured_shares=measured,
-    )
-
-
-async def async_estimate(
-    hass: HomeAssistant,
-    settings: Settings,
-    measured: dict[str, dict[str, float]] | None = None,
-) -> solver.Estimate:
-    """Projected database size for these settings, from the recorder's real numbers."""
-    return solver.estimate(await async_estimate_inputs(hass, settings, measured))
-
-
-async def async_estimate_variants(
-    hass: HomeAssistant,
-    settings: Settings,
-    measured: dict[str, dict[str, float]] | None,
-    variants: dict[str, Settings],
-) -> dict[str, float]:
-    """Projected size in GB for several settings at once. The row counts are read once."""
-    base = await async_estimate_inputs(hass, settings, measured)
-    return {
-        key: solver.estimate(
-            replace(base, schedules=variant.schedules(), horizon_days=variant.history_days)
-        ).total_gb
-        for key, variant in variants.items()
-    }
-
-
-# ---------------------------------------------------------------- the manager
-def _delete_issues(hass: HomeAssistant, *issue_ids: str) -> None:
-    for issue_id in issue_ids:
-        ir.async_delete_issue(hass, DOMAIN, issue_id)
-
-
-def _release_text(keep_days: Any) -> str:
-    return (
-        "Home Assistant's own purge is active again. At its next nightly run (about 04:12) it "
-        f"deletes every state, event and statistic older than {keep_days} days. Thinned "
-        "history older than that will be gone."
-    )
-
-
-async def async_release_for_removal(hass: HomeAssistant) -> None:
-    """The integration is being removed: hand purging back and say what that means."""
-    store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-    data = await store.async_load() or {}
-    startup = hass.data.get(DOMAIN, {}).get("startup")
-    try:
-        instance = get_instance(hass)
-    except KeyError, RuntimeError:
-        instance = None
-    keep_days = startup["keep_days"] if startup else getattr(instance, "keep_days", "?")
-    if instance is not None and startup:
-        instance.auto_purge = startup["auto_purge"]
-        instance.keep_days = startup["keep_days"]
-    _delete_issues(hass, *ALL_ISSUES)
-    if data.get("owned_retention"):
-        persistent_notification.async_create(
-            hass,
-            "Sediment was removed. " + _release_text(keep_days),
-            title="Sediment was removed",
-            notification_id="sediment_removed",
-        )
-    await store.async_remove()
-
-
-def build_profile_map(
-    settings: Settings,
-    data: dict[str, Any],
-    meta: dict[str, EntityMeta],
-    entity_ids: list[str],
-) -> dict[str, tuple[str, bool | None]]:
-    """The profile each entity gets right now, as the nightly job resolves it.
-
-    An entity whose metadata is missing keeps its stored profile, as in the job.
-    """
-    rules, _errors = parse_rules(settings.rules_text)
-    stored = data.get("profile_map") or {}
-    out: dict[str, tuple[str, bool | None]] = {}
-    for eid in entity_ids:
-        got = resolve(eid, meta.get(eid), rules)
-        if eid not in meta and eid in stored:
-            profile, _, flap = stored[eid].partition("|")
-            got = (profile, {"True": True, "False": False}.get(flap))
-        out[eid] = got
-    return out
 
 
 async def async_retention_owned(hass: HomeAssistant, entry: Any) -> bool:
@@ -334,7 +89,7 @@ async def async_retention_owned(hass: HomeAssistant, entry: Any) -> bool:
     return age is not None and age > (startup.get("keep_days") or 0) + 2
 
 
-class SedimentManager:
+class SedimentManager(TakeoverMixin, ReportMixin):
     """One per config entry."""
 
     def __init__(self, hass: HomeAssistant, entry: Any) -> None:
@@ -426,7 +181,7 @@ class SedimentManager:
             _LOGGER.warning("Sediment job did not stop in %s s, cancelling it", UNLOAD_WAIT_SECONDS)
             if self._run_task is not None:
                 self._run_task.cancel()
-            _delete_issues(self.hass, *ALL_ISSUES)
+            delete_issues(self.hass, *ALL_ISSUES)
             return  # the stored state may still be changing; do not copy it now
         if self.entry.disabled_by is not None and self.owned:
             persistent_notification.async_create(
@@ -440,201 +195,13 @@ class SedimentManager:
                 title="Sediment was disabled",
                 notification_id="sediment_disabled",
             )
-        _delete_issues(self.hass, *ALL_ISSUES)
+        delete_issues(self.hass, *ALL_ISSUES)
         await self.store.async_save(deepcopy(self.data))
 
     def _spawn(self, coro: Any) -> None:
         task = self.hass.async_create_task(coro)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-
-    # ------------------------------------------------------------ takeover
-    async def _release(self, prefix: str) -> None:
-        """Hand purging back to Home Assistant and clear the ownership."""
-        assert self.takeover is not None
-        was_owned = self.owned
-        self.takeover.restore()
-        self.data.pop("owned_retention", None)
-        await self.store.async_save(deepcopy(self.data))
-        if was_owned:
-            persistent_notification.async_create(
-                self.hass,
-                prefix + _release_text(self.takeover.startup["keep_days"]),
-                title="Sediment released purging",
-                notification_id="sediment_released",
-            )
-
-    async def _protect(self) -> None:
-        """The guard failed while the takeover was applied: do not let the recorder purge."""
-        assert self.takeover is not None
-        instance = get_instance(self.hass)
-        age = None
-        try:
-            age = await instance.async_add_executor_job(oldest_row_age_days, instance)
-        except Exception:
-            _LOGGER.exception("Sediment could not read the age of the oldest row")
-        horizon = max(self.settings.history_days, self.data.get("real_horizon_days", 0))
-        how = self.takeover.protect(age, horizon)
-        self.hass.data.setdefault(DOMAIN, {})["protected"] = True
-        _LOGGER.warning("Sediment keeps the recorder from purging (%s)", how)
-
-    async def _infer_ownership(self) -> None:
-        """Ownership is stored in Sediment's own store. If that store is lost, the data shows.
-
-        With the takeover ticked and rows older than the recorder's configured keep days
-        plus two, something other than the recorder's purge has kept them: treat the
-        retention as owned for protection (never for anything that deletes).
-        """
-        self._inferred_owned = False
-        if not self.settings.takeover or self.owned or self.takeover is None:
-            return
-        instance = get_instance(self.hass)
-        try:
-            age = await instance.async_add_executor_job(oldest_row_age_days, instance)
-        except Exception:
-            _LOGGER.exception("Sediment could not read the age of the oldest row")
-            return
-        keep = self.takeover.startup.get("keep_days") or 0
-        if age is not None and age > keep + 2:
-            self._inferred_owned = True
-            self._inferred_age = age
-            _LOGGER.warning(
-                "Sediment finds states %.0f days old, older than the recorder's %s days: "
-                "treating the retention as owned and keeping the recorder from purging",
-                age,
-                keep,
-            )
-
-    def _safety_net_issue(self) -> None:
-        assert self.takeover is not None
-        startup = self.takeover.startup
-        if self.settings.takeover and startup.get("auto_purge"):
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                ISSUE_SAFETY_NET,
-                is_fixable=False,
-                severity=ir.IssueSeverity.WARNING,
-                translation_key=ISSUE_SAFETY_NET,
-            )
-        else:
-            _delete_issues(self.hass, ISSUE_SAFETY_NET)
-
-    async def async_apply_takeover(self, at_startup: bool = True) -> list[str]:
-        """Apply the takeover (see `_apply_takeover`) and keep the inference notice current."""
-        problems = await self._apply_takeover(at_startup)
-        if self._inferred_owned and not self.owned and self.settings.takeover:
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                ISSUE_INFERRED,
-                is_fixable=False,
-                severity=ir.IssueSeverity.WARNING,
-                translation_key=ISSUE_INFERRED,
-                translation_placeholders={
-                    "days": f"{self._inferred_age:.0f}",
-                    "keep_days": str(self.takeover.startup.get("keep_days")),
-                },
-            )
-        else:
-            _delete_issues(self.hass, ISSUE_INFERRED)
-        return problems
-
-    async def _apply_takeover(self, at_startup: bool = True) -> list[str]:
-        """Engage, hold or release the takeover according to the options.
-
-        Returns the problems found. Rules:
-
-        * a failed guard never hands purging back; if the takeover was applied before, the
-          recorder is kept from purging and a repair issue says so;
-        * an applied takeover stays applied when dry run is switched on (thinning pauses);
-        * it is released only when the box is unticked (the options flow asked for
-          confirmation first), never from a job.
-        """
-        assert self.takeover is not None
-        s = self.settings
-        instance = get_instance(self.hass)
-        self._safety_net_issue()
-        if not s.takeover:
-            _delete_issues(self.hass, ISSUE_TAKEOVER_BLOCKED, ISSUE_PROTECTING, ISSUE_DIALECT)
-            if self.owned and at_startup:
-                await self._release("The takeover was switched off. ")
-            elif at_startup and self.hass.data.get(DOMAIN, {}).pop("protected", False):
-                # protection that was only inferred: the user has confirmed giving it up
-                self.takeover.restore()
-                persistent_notification.async_create(
-                    self.hass,
-                    "Sediment stopped protecting old states. "
-                    + _release_text(self.takeover.startup["keep_days"]),
-                    title="Sediment released purging",
-                    notification_id="sediment_released",
-                )
-            return []
-        if reason := dialect_problem(instance):
-            _LOGGER.warning("Sediment does not touch this database: %s", reason)
-            _delete_issues(self.hass, ISSUE_TAKEOVER_BLOCKED, ISSUE_PROTECTING)
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                ISSUE_DIALECT,
-                is_fixable=False,
-                severity=ir.IssueSeverity.WARNING,
-                translation_key=ISSUE_DIALECT,
-                translation_placeholders={"reason": reason},
-            )
-            if self.owned or self._inferred_owned:
-                await self._protect()
-            return [reason]
-        _delete_issues(self.hass, ISSUE_DIALECT)
-        problems = check_compat(instance)
-        if problems:
-            joined = "; ".join(problems)
-            if self.owned or self._inferred_owned:
-                _LOGGER.warning(
-                    "Sediment cannot work with this recorder and keeps it from purging: %s",
-                    joined,
-                )
-                await self._protect()
-                _delete_issues(self.hass, ISSUE_TAKEOVER_BLOCKED)
-                key = ISSUE_PROTECTING
-            else:
-                _LOGGER.warning(
-                    "Sediment does not take over purging, the recorder is untouched: %s", joined
-                )
-                _delete_issues(self.hass, ISSUE_PROTECTING)
-                key = ISSUE_TAKEOVER_BLOCKED
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                key,
-                is_fixable=False,
-                severity=ir.IssueSeverity.WARNING,
-                translation_key=key,
-                translation_placeholders={"reasons": joined},
-            )
-            return problems
-        _delete_issues(self.hass, ISSUE_TAKEOVER_BLOCKED, ISSUE_PROTECTING)
-        if s.dry_run and not self.owned:
-            # Nothing has been thinned yet and a dry run changes nothing: the guard has
-            # passed, the recorder keeps purging as before until dry run is switched off.
-            # Unless the data shows that thinned history exists (the store was lost).
-            if self._inferred_owned:
-                await self._protect()
-            return []
-        horizon = s.history_days
-        if s.dry_run:
-            # a dry run never shortens what the last real run allowed
-            horizon = max(horizon, int(self.data.get("real_horizon_days", 0)))
-        else:
-            self.data["real_horizon_days"] = float(horizon)
-        self.takeover.engage(horizon)
-        if not self.owned:
-            self.data["owned_retention"] = {
-                "since": dt_util.utcnow().isoformat(),
-                "keep_days": self.takeover.startup["keep_days"],
-            }
-            await self.store.async_save(deepcopy(self.data))
-        return []
 
     # ------------------------------------------------------------ listeners (sensors)
     @callback
@@ -691,7 +258,7 @@ class SedimentManager:
         instance = get_instance(self.hass)
 
         def ids(inst: Any) -> list[str]:
-            from .recorder_bridge import states_meta_entity_ids
+            from .rowstats import states_meta_entity_ids
 
             return states_meta_entity_ids(inst)
 
@@ -772,7 +339,9 @@ class SedimentManager:
             await self.async_apply_takeover(at_startup=False)
             return None
         try:
-            from .recorder_bridge import Job, JobConfig, run_on_recorder
+            from .job_types import JobConfig
+            from .recorder_bridge import Job
+            from .recorder_thread import run_on_recorder
         except Exception:
             _LOGGER.exception("Sediment cannot load its recorder bridge")
             return None
@@ -901,27 +470,6 @@ class SedimentManager:
             await self.async_refresh()
         return report
 
-    def _note_result(self, errors: list[str]) -> None:
-        """Count consecutive failed jobs; three in a row raise a repair issue."""
-        if not errors:
-            self.data["failed_jobs"] = 0
-            _delete_issues(self.hass, ISSUE_JOB_FAILING)
-            return
-        self.data["failed_jobs"] = self.data.get("failed_jobs", 0) + 1
-        if self.data["failed_jobs"] >= JOB_FAIL_ISSUE_AFTER and self.settings.takeover:
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                ISSUE_JOB_FAILING,
-                is_fixable=False,
-                severity=ir.IssueSeverity.ERROR,
-                translation_key=ISSUE_JOB_FAILING,
-                translation_placeholders={
-                    "count": str(self.data["failed_jobs"]),
-                    "errors": "; ".join(errors[:3]),
-                },
-            )
-
     def _profile_sig(self) -> str:
         """Hash of everything that decides which profile an entity gets."""
         s = self.settings
@@ -932,78 +480,6 @@ class SedimentManager:
     @staticmethod
     def _is_second_sunday(now: datetime) -> bool:
         return now.weekday() == 6 and 8 <= now.day <= 14
-
-    def _make_report(self, job: Any, dry: bool, seconds: float, waited: float) -> dict[str, Any]:
-        st = job.stats
-        stats = asdict(st)
-        top = sorted(st.top_entities.items(), key=lambda kv: -kv[1][0])[:TOP_ENTITIES]
-        stats["top_entities"] = {eid: {"raw_rows": v[0], "kept_rows": v[1]} for eid, v in top}
-        measured = solver.measured_shares_from_counts(st.share_counts)
-        days = max(1, st.days_simulated)
-        report: dict[str, Any] = {
-            "version": 1,
-            "generated": dt_util.utcnow().isoformat(),
-            "mode": "dry_run" if dry else "run",
-            "seconds": round(seconds, 1),
-            "backoff_seconds": waited,
-            "settings": {
-                "history_days": self.settings.history_days,
-                "resolution": self.settings.resolution,
-                "raw_days": self.settings.raw_days,
-                "takeover": self.settings.takeover,
-                "takeover_applied": bool(self.takeover and self.takeover.active),
-                "flapping_collapse": self.settings.flap_collapse,
-                "size_cap_gb": self.settings.size_cap_gb,
-            },
-            "stats": stats,
-            "quarantine": dict(list(self.data.get("quarantine", {}).items())[:50]),
-            "measured_kept_share": measured,
-            "raw_rows_per_day_by_class_and_profile": {
-                k: round(v / days, 1) for k, v in st.raw_rows_by_class_profile.items()
-            },
-        }
-        if self.data.get("projected_gb") is not None:
-            report["projected_gb"] = self.data["projected_gb"]
-        return report
-
-    @staticmethod
-    def _notification_text(report: dict[str, Any]) -> str:
-        st = report["stats"]
-        lines = [
-            f"Simulated {st['days_simulated']} day(s), {st['entity_days']} entity-days, "
-            f"{int(st['rows_seen']):,} rows. Nothing was thinned and no entity was dropped.",
-        ]
-        if st.get("housekeeping"):
-            lines.append(
-                "The takeover is applied, so the history length and the cleanup of events, "
-                f"short-term statistics and runs did run: {st['horizon_rows']:,} old state "
-                f"rows, {st['events_deleted']:,} events and {st['short_term_deleted']:,} "
-                "short-term statistics were removed."
-            )
-        shares = report.get("measured_kept_share") or {}
-        for cls, by_bucket in shares.items():
-            parts = ", ".join(
-                f"{float(b) / 60:g} min: {s * 100:.1f} %"
-                for b, s in sorted(by_bucket.items(), key=lambda kv: float(kv[0]))
-            )
-            lines.append(f"Kept share of {cls} rows: {parts}")
-        if st["dropped_rows"]:
-            lines.append(f"{st['dropped_rows']:,} rows of drop entities would be deleted.")
-        if st.get("reprofiled_entities"):
-            lines.append(
-                f"{st['reprofiled_entities']} entities changed profile since the last run; "
-                "their old days would be thinned again."
-            )
-        lines.append("Full report: sediment/last_report.json in the config directory.")
-        return "\n\n".join(lines)
-
-    def _write_report(self, report: dict[str, Any]) -> None:
-        path = self.hass.config.path(REPORT_FILE)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2, default=str)
-        os.replace(tmp, path)
 
     # ------------------------------------------------------------ sensor values
     @property
