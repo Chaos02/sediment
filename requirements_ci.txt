@@ -1,0 +1,4 @@
+# Pins for the CI jobs. ruff is installed by the lint job; the Home Assistant version
+# is the core tag the hassfest job checks out (scripts/ha_version.py reads it).
+ruff==0.17.3
+homeassistant==2026.10.4

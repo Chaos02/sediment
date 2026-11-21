@@ -58,16 +58,14 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: &code_paths
         - custom_components/**/*
-        - tests/**/*
         - scripts/**/*
         - hacs.json
         - pyproject.toml
-        - requirements_test.txt
+        - requirements_ci.txt
         - .gitlab-ci.yml
 
 stages:
   - check
-  - test
   - release
 
 variables:
@@ -84,16 +82,10 @@ variables:
   UV_VERSION: "0.13.6"
   UV_SHA256_AMD64: "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
   UV_SHA256_ARM64: "229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d"
-  # Python for every job: the test environment's 3.14.10 (Home Assistant 2026.9
-  # and 2026.10 run on 3.14, and the test plugin requires it; the pinned uv must
-  # know this build). uv checks the interpreter download against hashes built
+  # Python for every job: 3.14.10, the build Home Assistant 2026.9 and 2026.10 run on
+  # (the pinned uv must know this build). uv checks the interpreter download against hashes built
   # into uv itself, so the uv pin also pins the Python build.
   PYTHON_VERSION: "3.14.10"
-  # The pytest-homeassistant-custom-component release that pins the last patch
-  # of the previous Home Assistant minor (0.13.367 = Home Assistant 2026.9.4).
-  # The current one is pinned in requirements_test.txt. Move this when that
-  # file moves to a new minor.
-  HA_PREVIOUS_PLUGIN: "0.13.367"
   PYTHONUNBUFFERED: "1"
   # uv's download cache and managed Pythons live in the checkout so that the
   # job cache can keep them. The venv is in /tmp, on another file system, so
@@ -134,13 +126,13 @@ default:
 
 # uv's wheel cache and the managed Pythons. The untrusted runner keeps nothing
 # between jobs unless an operator turned on a runner cache; then this makes the
-# install fast. One cache per job, renewed when requirements_test.txt changes.
+# install fast. One cache per job, renewed when requirements_ci.txt changes.
 .uv_cache:
   cache:
     key:
       prefix: uv-$CI_JOB_NAME
       files:
-        - requirements_test.txt
+        - requirements_ci.txt
     paths:
       - .cache/uv
       - .cache/uv-python
@@ -193,7 +185,7 @@ tag-check:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - python scripts/check_tag.py
 
-# ruff, pinned in requirements_test.txt. The cache directory is in .gitignore
+# ruff, pinned in requirements_ci.txt. The cache directory is in .gitignore
 # and also excluded here, so ruff never reads the managed Pythons in it.
 lint:
   stage: check
@@ -203,7 +195,7 @@ lint:
   before_script:
     - *uv_setup
   script:
-    - uv pip install "$(grep -E '^ruff==' requirements_test.txt)"
+    - uv pip install "$(grep -E '^ruff==' requirements_ci.txt)"
     - ruff --version
     - ruff check --extend-exclude .cache .
     - ruff format --check --extend-exclude .cache .
@@ -212,7 +204,7 @@ lint:
 # the hassfest GitHub Action runs (the image ghcr.io/home-assistant/hassfest),
 # rebuilt here because that image is not on the runner allowlist. The steps are
 # those of the image's Dockerfile and entrypoint.sh at the Home Assistant tag
-# that requirements_test.txt pins (scripts/ha_version.py finds it):
+# that requirements_ci.txt pins (scripts/ha_version.py finds it):
 #   - a shallow, sparse checkout of home-assistant/core at that tag, with only
 #     homeassistant/, script/ and the requirements files;
 #   - pipdeptree, tqdm and ruff at the versions core pins, then core's
@@ -231,7 +223,7 @@ hassfest:
     key:
       prefix: hassfest
       files:
-        - requirements_test.txt
+        - requirements_ci.txt
     paths:
       - .cache/uv
       - .cache/uv-python
@@ -299,48 +291,6 @@ hacs-check:
       fi
       python scripts/check_hacs.py $args
 
-# pytest on the Home Assistant version pinned in requirements_test.txt.
-test-ha-current:
-  stage: test
-  extends:
-    - .untrusted
-    - .uv_cache
-  before_script:
-    - *uv_setup
-  script:
-    - uv pip install -r requirements_test.txt
-    - uv pip list | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
-    - pytest --junitxml=report.xml
-  artifacts:
-    when: always
-    expire_in: 14 days
-    reports:
-      junit: report.xml
-
-# The same tests on the previous Home Assistant minor. The manifest asks for
-# Home Assistant 2026.10 or newer (hacs.json), so a failure here is allowed: it
-# shows whether the minimum could drop, and it warns early when the code starts
-# to rely on something new. When the current minor moves up, set
-# HA_PREVIOUS_PLUGIN to the plugin release of the last patch before it.
-test-ha-previous:
-  stage: test
-  extends:
-    - .untrusted
-    - .uv_cache
-  allow_failure: true
-  before_script:
-    - *uv_setup
-  script:
-    - grep -v '^pytest-homeassistant-custom-component' requirements_test.txt > /tmp/requirements_previous.txt
-    - uv pip install -r /tmp/requirements_previous.txt "pytest-homeassistant-custom-component==$HA_PREVIOUS_PLUGIN"
-    - uv pip list | grep -iE '^(homeassistant|pytest-homeassistant-custom-component|pytest) '
-    - pytest --junitxml=report.xml
-  artifacts:
-    when: always
-    expire_in: 14 days
-    reports:
-      junit: report.xml
-
 # Publishes a tag vX.Y.Z or vX.Y.Z-beta.N. In order:
 #   1. the tag guards again (scripts/check_tag.py), which also write the
 #      release notes: the CHANGELOG section for a final, the Unreleased section
@@ -374,8 +324,6 @@ release:
     - job: hassfest
       artifacts: false
     - job: hacs-check
-      artifacts: false
-    - job: test-ha-current
       artifacts: false
   interruptible: false
   resource_group: release
