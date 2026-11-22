@@ -18,7 +18,7 @@
 
 Home Assistant keeps raw state history for 10 days and then deletes it. Sediment thins the old rows of the recorder's `states` table in place instead. It keeps spikes, steps, every state change and the edges of `unavailable` gaps. Flapping bursts shrink to their first and last change from tier 2 on, unless you turn that off. It removes the long stretches where nothing changed. History, logbook and energy keep working, because the data stays in the normal tables.
 
-Status: beta. Tested with Home Assistant 2026.10 (recorder schema 53) on SQLite. MariaDB and PostgreSQL are untested.
+Status: beta. Tested with Home Assistant 2026.11 (recorder schema 53) on SQLite. MariaDB and PostgreSQL are untested.
 
 ## What it does
 
