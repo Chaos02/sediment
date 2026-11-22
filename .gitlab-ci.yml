@@ -242,7 +242,7 @@ hassfest:
         rm -rf "$core"
         git clone -q --depth 1 --filter=blob:none --sparse --branch "$ha" \
           https://github.com/home-assistant/core.git "$core"
-        git -C "$core" sparse-checkout set --no-cone /homeassistant /script \
+        git -C "$core" sparse-checkout set --no-cone /homeassistant /script /packages \
           /requirements.txt /requirements_all.txt /requirements_test.txt /requirements_test_pre_commit.txt
         echo "$ha" > "$core/.checked-out-tag"
       fi
@@ -253,6 +253,8 @@ hassfest:
         "tqdm==$(awk -F'==' '/^tqdm==/{print $2}' requirements_test.txt)" \
         "ruff==$(awk -F'==' '/^ruff==/{print $2}' requirements_test_pre_commit.txt)"
       uv pip install -c homeassistant/package_constraints.txt -r requirements.txt
+      # Home Assistant 2026.11 ships the hassfest runner as its own package.
+      uv pip install ./packages/hassfest
       echo "--- find the integrations"
       cd "$CI_PROJECT_DIR"
       integrations=""
